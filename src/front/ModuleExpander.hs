@@ -12,7 +12,7 @@ import Parser.Parser
 import Literate
 import Typechecker.Environment
 import AST.Meta
-import Types(setRefSourceFile, setRefNamespace)
+import Types(setRefSourceFile, setRefNamespace, setRefNamePrefix)
 
 import SystemUtils
 import Control.Monad
@@ -93,18 +93,23 @@ findAndImportModules importDirs preludePaths sourceDir sourceName
     moduleNamespace = if moduledecl == NoModule
                       then emptyNamespace
                       else explicitNamespace [modname moduledecl]
+
+    namePrefix = if moduledecl == NoModule
+                 then Name "main"
+                 else modname moduledecl
+
     setImportSource source i =
         let shortPath = shortenPrelude preludePaths source
         in i{isource = Just shortPath}
     setClassSource source c@Class{cname} =
       c{cname = setRefNamespace moduleNamespace $
-                setRefSourceFile source cname}
+                   setRefSourceFile source (setRefNamePrefix namePrefix cname)}
     setTraitSource source t@Trait{tname} =
       t{tname = setRefNamespace moduleNamespace $
-                setRefSourceFile source tname}
+                setRefSourceFile source (setRefNamePrefix namePrefix tname)}
     setTypedefSource source d@Typedef{typedefdef} =
       d{typedefdef = setRefNamespace moduleNamespace $
-                     setRefSourceFile source typedefdef}
+                     setRefSourceFile source (setRefNamePrefix namePrefix typedefdef)}
     setFunctionSource source f =
       f{funsource = source}
 

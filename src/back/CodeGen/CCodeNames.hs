@@ -165,12 +165,20 @@ encoreName kind name =
   in
     intercalate "_" nonEmptys
 
+
+qualifyRefType :: Ty.Type -> String
+qualifyRefType ty
+  | isRefAtomType ty = show (getRefNamePrefix ty) ++ --sourceToString (Ty.getRefSourceFile ty) ++
+                       "_" ++ Ty.getId ty
+  | otherwise = error "CCodeNames.hs: not a ref type: " ++ show ty
+
+{-
 qualifyRefType :: Ty.Type -> String
 qualifyRefType ty
   | isRefAtomType ty = sourceToString (Ty.getRefSourceFile ty) ++
                        "_" ++ Ty.getId ty
   | otherwise = error "CCodeNames.hs: not a ref type: " ++ show ty
-
+-}
 fixPrimes name
     | '\'' `elem` name =
         let nameWithoutPrimes = replace "'" "_" name
