@@ -45,7 +45,7 @@ methodImpls cdecl table = concatMap methodImpl
 translateActiveClass cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) table =
     Program $ Concat $
       (LocalInclude "header.h") :
-      [traitMethodSelector table cdecl] ++
+      [traitMethodSelectorIf table cdecl] ++
       [typeStructDecl cdecl] ++
       [runtimeTypeInitFunDecl cdecl] ++
       [tracefunDecl cdecl] ++
@@ -239,7 +239,7 @@ constructorImpl act cname =
 translateSharedClass cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) table =
   Program $ Concat $
     (LocalInclude "header.h") :
-    [traitMethodSelector table cdecl] ++
+    [traitMethodSelectorIf table cdecl] ++
     [typeStructDecl cdecl] ++
     [runtimeTypeInitFunDecl cdecl] ++
     [tracefunDecl cdecl] ++
@@ -255,7 +255,7 @@ translateSharedClass cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) table =
 translatePassiveClass cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) table =
   Program $ Concat $
     (LocalInclude "header.h") :
-    [traitMethodSelector table cdecl] ++
+    [traitMethodSelectorIf table cdecl] ++
     [runtimeTypeInitFunDecl cdecl] ++
     [tracefunDecl cdecl] ++
     [constructorImpl Passive cname] ++
@@ -284,6 +284,55 @@ traitMethodSelector table A.Class{A.cname, A.ccomposition} =
     defaultCase = Statement $ Call (Nam "printf") [err, AsExpr $ Var "id"]
     switch = Switch cond cases defaultCase
     body = Seq [ switch, Return Null ]
+  in
+    Function retType fname args body
+  where
+    traitCase :: Ty.Type -> Ty.Type -> [A.FunctionHeader] ->
+                 [(CCode Name, CCode Stat)]
+    traitCase cname tname tmethods =
+        let
+            methodNames = map A.hname tmethods
+            caseNames   = map (msgId tname) methodNames
+            caseStmts   = map (Return . methodImplName cname) methodNames
+        in zip caseNames caseStmts ++
+           if Ty.isActiveRefType tname then
+             let
+                 futCaseNames = map (futMsgId tname) methodNames
+                 futCaseStmts =
+                   map (Return . callMethodFutureName cname) methodNames
+                 oneWayCaseNames = map (oneWayMsgId tname) methodNames
+                 oneWayCaseStmts =
+                   map (Return . methodImplOneWayName cname) methodNames
+             in
+               zip futCaseNames futCaseStmts ++
+               zip oneWayCaseNames oneWayCaseStmts
+           else
+             []
+
+--If (StatAsExpr ncond tcond) (Statement exportThn) (Statement exportEls)])
+
+traitMethodSelectorIf :: ProgramTable -> A.ClassDecl -> CCode Toplevel
+traitMethodSelectorIf table A.Class{A.cname, A.ccomposition} =
+  let
+    retType = Static (Ptr void)
+    fname = traitMethodSelectorName
+    args = [(Ptr $ Typ "char", Var "id")]
+
+    
+    traitTypes = A.typesFromTraitComposition ccomposition
+    traitMethods = map (`lookupMethods` table) traitTypes
+    --cases = (name, body):rest
+    cases = concat $ zipWith (traitCase cname) traitTypes traitMethods
+
+    eq = BinOp (Nam "==")
+    expressions = map (\(name, body) -> (Call (Nam "strcmp") [AsExpr $ Var "id", String $ show name] `eq` Int 0, body)) cases
+
+
+    err = String "error, got invalid id: %s"
+    defaultCase = Statement $ Call (Nam "printf") [err, AsExpr $ Var "id"]
+
+    ifchain = IfChain expressions defaultCase
+    body = Seq [ ifchain, Return Null ]
   in
     Function retType fname args body
   where

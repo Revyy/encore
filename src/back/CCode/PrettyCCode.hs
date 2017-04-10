@@ -115,6 +115,15 @@ pp' (If c t e) =
     bracedBlock (pp' t) $+$
   "else" $+$
     bracedBlock (pp' e)
+pp' (IfChain [] els) = pp' els
+pp' (IfChain (first:branches) els) =
+  (vcat $ ppBranch "if" first:map (ppBranch "else if") branches) $+$
+  "else" $+$
+    bracedBlock (pp' els)
+  where
+    ppBranch header (cond, body) =
+      header <+> parens (pp' cond) $+$
+        bracedBlock (pp' body)
 pp' (Ternary c t e) = pp' c <> "?" <+> pp' t <> ":" <+> pp' e
 pp' (Return e) = "return" <+> pp' e <> ";"
 pp' (Break) = "break;"
