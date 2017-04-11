@@ -2,6 +2,7 @@ module ModuleExpander(
                       ProgramTable
                      ,buildProgramTable
                      ,compressProgramTable
+                     ,compressProgramTable'
                      ,dirAndName
                      ) where
 
@@ -51,6 +52,7 @@ stdLib source = [lib "String", lib "Std"]
                     ,itarget = explicitNamespace [Name s]
                     ,isource = Nothing
                     ,iqualified = False
+                    ,ilibrary=False
                     ,iselect = Nothing
                     ,ialias  = Nothing
                     ,ihiding = Nothing
@@ -79,7 +81,9 @@ findAndImportModules importDirs preludePaths sourceDir sourceName
       traits'    = map (setTraitSource shortSource) traits
       typedefs'  = map (setTypedefSource shortSource) typedefs
       functions' = map (setFunctionSource shortSource) functions
+      precompiled' = (moduleLibrary moduledecl)
       p' = p{source    = shortSource
+            ,precompiled = precompiled'
             ,imports   = imports'
             ,classes   = classes'
             ,traits    = traits'
@@ -95,12 +99,9 @@ findAndImportModules importDirs preludePaths sourceDir sourceName
     
     sourcePath = sourceDir </> sourceName
     shortSource = shortenPrelude preludePaths sourcePath
-    --Necessary because of embedded C code in the string module.
-    namePrefix = case any (`isPrefixOf` sourcePath) preludePaths of
-                    True -> Name (sourceToString shortSource)
-                    False -> if moduledecl == NoModule
-                             then Name ""
-                             else modname moduledecl
+    namePrefix = if moduledecl == NoModule
+                 then Name ""
+                 else modname moduledecl
 
     setImportSource source i =
         let shortPath = shortenPrelude preludePaths source
@@ -117,19 +118,19 @@ findAndImportModules importDirs preludePaths sourceDir sourceName
     setFunctionSource source f =
       f{funsource = source}
 
-buildModulePath :: Namespace -> FilePath
-buildModulePath (NSExplicit ns) =
+buildModulePath :: Namespace -> Bool -> FilePath
+buildModulePath (NSExplicit ns) ilibrary =
   let prefix = init ns
       suffix = last ns
       moduleDir = foldl (</>) "" $ map show prefix
-      moduleName = show suffix <> ".enc"
+      moduleName = show suffix <> (if ilibrary then ".emi" else ".enc")
   in if null moduleDir
      then moduleName
      else moduleDir </> moduleName
 
 findSource :: [FilePath] -> FilePath -> ImportDecl -> IO FilePath
-findSource importDirs sourceDir Import{itarget} = do
-  let modulePath = buildModulePath itarget
+findSource importDirs sourceDir Import{itarget, ilibrary} = do
+  let modulePath = buildModulePath itarget ilibrary
       sources = nub $
                 sourceDir </> modulePath :
                 map (</> modulePath) importDirs
@@ -165,8 +166,8 @@ importModule importDirs preludePaths table source
            in findAndImportModules importDirs preludePaths
                                    sourceDir sourceName table ast
 
-compressProgramTable :: ProgramTable -> Program
-compressProgramTable = foldl1 joinTwo
+compressProgramTable' :: ProgramTable -> Program
+compressProgramTable' = foldl1 joinTwo
   where
     joinTwo :: Program -> Program -> Program
     joinTwo p@Program{etl=etl,  functions=functions,  traits=traits,  classes=classes}
@@ -175,12 +176,18 @@ compressProgramTable = foldl1 joinTwo
                   traits=traits ++ traits', classes=classes ++ classes'}
 
 
-sourceToString :: FilePath -> String
-sourceToString = map translateSep . filter (/='.') . dropEnc
+compressProgramTable :: ProgramTable -> Program
+compressProgramTable table = 
+  let libs = Map.filter (precompiled) table
+      regular   = Map.filter (not . precompiled) table
+      prog      = compressProgramTable' regular
+  in
+      addLibraries prog libs
+
+
+addLibraries :: Program -> ProgramTable -> Program
+addLibraries source libs = foldl joinTwo source libs
   where
-    translateSep '/' = '_'
-    translateSep '-' = '_'
-    translateSep c = c
-    dropEnc [] = []
-    dropEnc ".enc" = []
-    dropEnc (c:s) = c:dropEnc s
+    joinTwo :: Program -> Program -> Program
+    joinTwo p@Program{traits=traits, libraries=libraries}
+              p2@Program{traits=traits'} = p{traits=traits ++ traits', libraries=libraries ++ [p2]}
