@@ -24,13 +24,15 @@ data FileDescriptor = Stdout | Stderr
 
 data Program = Program {
   source :: FilePath,
+  precompiled :: Bool,
   moduledecl :: ModuleDecl,
   etl :: [EmbedTL],
   imports :: [ImportDecl],
   typedefs :: [Typedef],
   functions :: [Function],
   traits :: [TraitDecl],
-  classes :: [ClassDecl]
+  classes :: [ClassDecl],
+  libraries :: [Program]
 } deriving (Show)
 
 setProgramSource source p = p{source}
@@ -88,6 +90,7 @@ data EmbedTL = EmbedTL {
 data ModuleDecl = Module {
       modmeta :: Meta ModuleDecl,
       modname :: Name,
+      modlibrary :: Bool,
       modexports :: Maybe [Name]
     }
   | NoModule deriving(Show, Eq)
@@ -107,9 +110,13 @@ moduleName Module{modname} = modname
 moduleExports NoModule = Nothing
 moduleExports Module{modexports} = modexports
 
+moduleLibrary NoModule = False
+moduleLibrary Module{modlibrary} = modlibrary
+
 data ImportDecl = Import {
       imeta   :: Meta ImportDecl,
       itarget :: Namespace,
+      ilibrary :: Bool,
       iqualified :: Bool,
       ihiding :: Maybe [Name],
       iselect :: Maybe [Name],

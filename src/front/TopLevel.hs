@@ -344,6 +344,7 @@ main =
        verbose options "== Generating code =="
        let (mainDir, mainName) = dirAndName sourceName
            mainSource = mainDir </> mainName
+
        let fullAst = setProgramSource mainSource $
                      compressProgramTable optimizedTable
 

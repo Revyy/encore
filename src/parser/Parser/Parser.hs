@@ -205,6 +205,7 @@ reservedNames =
     ,"int"
     ,"let"
     ,"linear"
+    ,"library"
     ,"match"
     ,"module"
     ,"new"
@@ -229,6 +230,7 @@ reservedNames =
     ,"val"
     ,"var"
     ,"unit"
+    ,"use"
     ,"when"
     ,"where"
     ,"while"
@@ -454,6 +456,7 @@ program = do
   let (classes, traits, typedefs, functions) = partitionDecls decls
   eof
   return Program{source
+                ,precompiled=False
                 ,moduledecl
                 ,etl
                 ,imports
@@ -461,6 +464,7 @@ program = do
                 ,functions
                 ,traits
                 ,classes
+                ,libraries = []
                 }
     where
       hashbang = do string "#!"
@@ -470,13 +474,15 @@ moduleDecl :: EncParser ModuleDecl
 moduleDecl = option NoModule $
   lineFold $ \sc' -> do
     modmeta <- meta <$> getPosition
-    reserved "module"
+    modlibrary <- option False $ reserved "library" >> return True
+    when (not modlibrary) (reserved "module")
     lookAhead upperChar
     modname <- Name <$> identifier
     modexports <- optional $
                   folded parens sc' ((Name <$> identifier) `sepEndBy` comma)
     return Module{modmeta
                  ,modname
+                 ,modlibrary
                  ,modexports
                  }
 
@@ -485,7 +491,8 @@ importdecl =
   lineFold $ \sc' -> do
     indent <- L.indentLevel
     imeta <- meta <$> getPosition
-    reserved "import"
+    ilibrary <- option False $ reserved "use" >> return True
+    when (not ilibrary) (reserved "import")
     iqualified <- option False $ reserved "qualified" >> return True
     itarget <- explicitNamespace <$> modulePath
     iselect <- optional $
@@ -500,6 +507,7 @@ importdecl =
                  folded parens sc' ((Name <$> identifier) `sepEndBy` comma)
     return Import{imeta
                  ,itarget
+                 ,ilibrary
                  ,iqualified
                  ,iselect
                  ,ihiding
