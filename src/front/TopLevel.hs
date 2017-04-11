@@ -26,7 +26,7 @@ import SystemUtils
 import Language.Haskell.TH -- for Template Haskell hackery
 import Text.Printf
 import qualified Text.PrettyPrint.Boxes as Box
-import System.FilePath (splitPath, joinPath)
+import System.FilePath (splitPath, joinPath, dropExtension)
 import Text.Megaparsec.Error(errorPos, parseErrorTextPretty)
 import AST.Meta(showSourcePos)
 
@@ -36,6 +36,7 @@ import Literate
 import Parser.Parser
 import AST.AST
 import AST.PrettyPrinter
+import AST.LibPrinter
 import AST.Desugarer
 import ModuleExpander
 import Typechecker.Environment(buildLookupTable)
@@ -49,6 +50,7 @@ import CodeGen.Preprocessor
 import CodeGen.Header
 import CCode.PrettyCCode
 import Identifiers
+import CodeGen.LibraryHeader(generateLibraryHeader)
 
 
 -- the following line of code resolves the standard path at compile time using Template Haskell
@@ -75,6 +77,7 @@ data Option =
             | Help
             | Undefined String
             | Malformed String
+            | CreateLibrary
               deriving Eq
 
 data OptionHolder =
@@ -123,7 +126,9 @@ optionMappings =
        (NoArg NoGC, "", "--no-gc", "",
         "DEBUG: disable GC and use C-malloc for allocation."),
        (NoArg Help, "", "--help", "",
-        "Display this information.")
+        "Display this information."),
+         (NoArg CreateLibrary, "-cl", "--create-library", "",
+        "Produces a static library with the contents of the module.")
       ]
   where
     makeMapping (holder, short, long, optArg, desc) =
@@ -287,6 +292,67 @@ compileProgram prog sourcePath options =
       getDefine NoGC = "NO_GC"
       getDefine _ = ""
 
+compileLibrary originalProg prog sourcePath options =
+  do encorecPath <- getExecutablePath
+     let encorecDir = dirname encorecPath
+         incPath = encorecDir <> "inc/"
+         sourceName = dropExtension sourcePath
+         srcDir = sourceName ++ "_src"
+         libName = sourceName ++ ".a"
+         interface = sourceName ++ ".emi"
+         headerFile = srcDir </> "header.h"
+         sharedFile = srcDir </> "shared.c"
+         makefile   = srcDir </> "Makefile"  
+    
+     let header = generateLibraryHeader prog
+     let emitted = compileToC prog
+         classes = processClassNames (getClasses emitted)
+         shared = getShared emitted
+    
+     let encoreNames =
+           map (\(name, _) -> changeFileExt name "encore.o") classes
+        
+         cc    = "clang"
+         customFlags = case find isCustomFlags options of
+                            Just (CustomFlags str) -> str
+                            Nothing                -> ""
+         flags = "-std=gnu11 -Wall -fms-extensions -Wno-format -Wno-microsoft -Wno-parentheses-equality -Wno-unused-variable -Wno-unused-value" <+> customFlags <+> "-Wno-attributes"
+         defines = getDefines options
+         incs  = "-I" <+> incPath
+         cmd   = flags <+> incs
+         compileCmd = "cd" <+> srcDir <+> "&& make module"
+    
+     --Write files
+     createDirectoryIfMissing True srcDir
+     mapM_ (writeClass srcDir) classes
+     withFile headerFile WriteMode (output header)
+     withFile sharedFile WriteMode (output shared)
+     withFile makefile   WriteMode (output $
+           generateLibraryMakefile encoreNames libName cc cmd incPath defines)
+     writeFile interface (show (ppLibrary originalProg))
+     --Compile
+     exitCode <- system $ compileCmd
+     case exitCode of
+       ExitSuccess -> return ()
+       ExitFailure n ->
+            abort $ " *** Compilation failed with exit code" <+> show n <+> "***"
+
+     --Keep or remove source files
+     unless (KeepCFiles `elem` options)
+                  (do runCommand $ "rm -rf" <+> srcDir
+                      return ())
+
+     return srcDir
+  where
+    getDefines = unwords . map ("-D"++) .
+                   filter (/= "") . map getDefine
+    getDefine NoGC = "NO_GC"
+    getDefine _ = ""
+
+    isCustomFlags (CustomFlags _) = True
+    isCustomFlags _ = False
+
+
 main =
     do args <- getArgs
        (programs, importDirs, options) <- parseArguments args
@@ -298,12 +364,17 @@ main =
                     usage <> "\n" <>
                     "The --help flag provides more information.\n"))
        warnings options
+
+       importPaths <- mapM absolutize importDirs
+
        let sourceName = head programs
-       sourceExists <- doesFileExist sourceName
+       sourcePath <- absolutize sourceName
+
+       sourceExists <- doesFileExist sourcePath
        unless sourceExists
-           (abort $ "File \"" ++ sourceName ++ "\" does not exist! Aborting.")
-       verbose options $ "== Reading file '" ++ sourceName ++ "' =="
-       raw <- readFile sourceName
+           (abort $ "File \"" ++ sourcePath ++ "\" does not exist! Aborting.")
+       verbose options $ "== Reading file '" ++ sourcePath ++ "' =="
+       raw <- readFile sourcePath
        code <- if Literate `elem` options || "#+literate\n" `isPrefixOf` raw
                then do
                  verbose options "== Extracting tangled code =="
@@ -312,7 +383,7 @@ main =
                    return raw
 
        verbose options "== Parsing =="
-       ast <- case parseEncoreProgram sourceName code of
+       ast <- case parseEncoreProgram sourcePath code of
                 Right ast  -> return ast
                 Left error -> do
                   let pos = NE.head $ errorPos error
@@ -342,19 +413,22 @@ main =
        let optimizedTable = fmap optimizeProgram capturecheckedTable
 
        verbose options "== Generating code =="
-       let (mainDir, mainName) = dirAndName sourceName
+       let (mainDir, mainName) = dirAndName sourcePath
            mainSource = mainDir </> mainName
 
        let fullAst = setProgramSource mainSource $
                      compressProgramTable optimizedTable
 
-       unless (TypecheckOnly `elem` options) $
+       unless (TypecheckOnly `elem` options || CreateLibrary `elem` options) $
          case checkForMainClass mainSource fullAst of
            Just error -> abort $ show error
            Nothing    -> return ()
 
-       exeName <- compileProgram fullAst sourceName options
-       when (Run `elem` options)
+       exeName <- if CreateLibrary `elem` options 
+                  then compileLibrary ast fullAst sourceName options
+                  else compileProgram fullAst sourceName options
+
+       when (Run `elem` options && not (CreateLibrary `elem` options))
            (do verbose options $ "== Running '" ++ exeName ++ "' =="
                system $ "./" ++ exeName
                system $ "rm " ++ exeName
