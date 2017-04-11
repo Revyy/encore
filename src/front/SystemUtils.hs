@@ -40,6 +40,7 @@ module SystemUtils (
     (</>), (<.>), (<+>), (<>),
 
     newer,
+    absolutize,
 
     encode,
     decode,
@@ -56,7 +57,10 @@ import Prelude hiding                  (catch)
 
 import System.IO
 import System.Environment           ( getEnv )
-import System.Directory             ( doesFileExist, getModificationTime, removeFile )
+import System.Directory             ( doesFileExist, getModificationTime, removeFile, getHomeDirectory )
+import System.Path.NameManip (guess_dotdot, absolute_path)
+import System.FilePath (addTrailingPathSeparator, normalise)
+import Data.Maybe (fromJust)
 
 -- ---------------------------------------------------------------------
 -- some misc types we use
@@ -199,6 +203,21 @@ isPathSeparator ch =
 #else
   ch == '/'
 #endif
+
+
+--Builds an absolute path using a relative path string.
+--Credits to Denis Shevchenko.
+absolutize :: String -> IO String
+absolutize aPath 
+    | "~" `isPrefixOf` aPath = do
+        homePath <- getHomeDirectory
+        return $ normalise $ addTrailingPathSeparator homePath 
+                             ++ tail aPath
+    | otherwise = do
+        pathMaybeWithDots <- absolute_path aPath
+        return $ fromJust $ guess_dotdot pathMaybeWithDots
+
+
 
 -- Code from Cabal end ------------------------------------
 -----------------------------------------------------------

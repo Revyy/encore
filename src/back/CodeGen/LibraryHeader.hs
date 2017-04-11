@@ -1,4 +1,4 @@
-module CodeGen.Header(generateHeader) where
+module CodeGen.LibraryHeader(generateLibraryHeader) where
 
 import Control.Arrow ((&&&))
 import Data.List (partition)
@@ -17,32 +17,21 @@ import qualified Types as Ty
 
 -- | Generates the C header file for the translated program
 -- | This function generates all the common code, generateHeaderRecurser generates class specific code
-generateHeader :: A.Program -> CCode FIN
+generateLibraryHeader :: A.Program -> CCode FIN
 
-generateHeader p =
+generateLibraryHeader p =
     Program $
-    IfNDefine "HEADER_H" $
+    IfNDefine "ENCORE_LIB_H" $
     Concat $
-    HashDefine "HEADER_H" :
+    HashDefine "ENCORE_LIB_H" :
     HashDefine "_XOPEN_SOURCE 800" :
     (Includes [
-      "pthread.h", -- Needed because of the use of locks in future code, remove if we choose to remove lock-based futures
-      "pony.h",
       "pool.h",
-      "stdlib.h",
-      "closure.h",
-      "stream.h",
       "array.h",
-      "tuple.h",
       "range.h",
-      "future.h",
-      "task.h",
       "option.h",
-      "party.h",
-      "string.h",
       "stdio.h",
       "stdarg.h",
-      "dtrace_enabled.h",
       "dtrace_encore.h"
      ]) :
     HashDefine "UNIT ((void*) -1)" :
@@ -267,8 +256,8 @@ generateHeader p =
                  mparams = A.methodParams m
                  mtype = A.methodType m
 
-     wrapperMethods c@A.Class{A.cname, A.cmethods} =
-       if A.isPassive c then
+     wrapperMethods A.Class{A.cname, A.cmethods} =
+       if Ty.isPassiveRefType cname then
          []
        else
          map (genericMethod callMethodFutureName future) nonStreamMethods ++

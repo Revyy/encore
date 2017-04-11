@@ -66,3 +66,34 @@ generateMakefile classFiles progName compiler ccFlags incPath defines libs =
           | isEmpty cmd = target <> colon <+> deps
           | otherwise   = target <> colon <+> deps $$
                           tab <> cmd
+
+generateLibraryMakefile :: [String] ->
+   String -> String -> String -> String -> String -> Doc
+generateLibraryMakefile classFiles libName compiler ccFlags incPath defines =
+    decl "CC" [compiler]
+    $$
+    decl "TARGET" [libName]
+    $$
+    decl "INC" [incPath]
+    $$
+    decl "FLAGS" [ccFlags]
+    $$
+    decl "DEFINES" [defines]
+    $$
+    decl "DEPS" ("shared.o" : classFiles)
+    $\$
+    rule (text "%.o")  (text "%.c")
+         (cc [flags, i inc, (text "-c -o $@ $<")])
+    $\$
+    rule (text "module") deps
+         (text "ar -rcs ../$(TARGET) $<")
+    $\$
+    rule clean empty
+         (rm [target, (text "*.o")])
+   
+    where
+      decl var rhs = text var <> equals <> hsep (map text rhs)
+      rule target deps cmd
+          | isEmpty cmd = target <> colon <+> deps
+          | otherwise   = target <> colon <+> deps $$
+                          tab <> cmd
