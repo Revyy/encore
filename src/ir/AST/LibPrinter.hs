@@ -45,8 +45,8 @@ ppType = text . show
 ppLibrary :: Program -> Doc
 ppLibrary Program{moduledecl, etl, imports, typedefs, functions, traits, classes} =
     ppModuleDecl moduledecl $+$
-    vcat (map ppEmbedded etl) <+>
     vcat (map ppImportDecl imports) $+$
+    vcat (map ppEmbedded etl) <+>
     vcat (map ppTypedef typedefs) $+$
     -- TODO: reverse these somewhere else...
     vcat (reverse $ map ppFunction functions) $+$
@@ -72,14 +72,16 @@ ppModuleDecl Module{modname, modexports} =
 
 ppImportDecl :: ImportDecl -> Doc
 ppImportDecl Import {itarget
+                    ,ilibrary
                     ,iqualified
                     ,ihiding
                     ,iselect
                     ,ialias
                     } =
-  let import' = if iqualified
-                then "import" <+> "qualified"
-                else "import"
+  let typeOfImport = if ilibrary then "use" else "import"
+      import' = if iqualified
+                then typeOfImport <+> "qualified"
+                else typeOfImport
   in import' <+> ppNamespace itarget <> maybeSelect <> maybeHiding <> maybeAlias
   where
     maybeSelect =

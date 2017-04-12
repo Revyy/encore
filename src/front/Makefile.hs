@@ -20,6 +20,8 @@ benchFlags = text "$(BENCH_FLAGS)"
 target = text "$(TARGET)"
 inc = text "$(INC)"
 lib = text "$(LIB)"
+local = text "$(LOCAL)"
+link = text "$(LINK)"
 deps = text "$(DEPS)"
 defs = text "$(DEFINES)"
 dSYM = text ".dSYM"
@@ -28,8 +30,8 @@ o = (text "-o" <+>)
 parent = text ".."
 
 generateMakefile :: [String] ->
-   String -> String -> String -> String -> String -> String -> Doc
-generateMakefile classFiles progName compiler ccFlags incPath defines libs =
+   String -> String -> String -> String -> String -> String -> String -> String -> Doc
+generateMakefile classFiles progName compiler ccFlags incPath defines libs locals links =
     decl "CC" [compiler]
     $$
     decl "TARGET" [progName]
@@ -37,6 +39,10 @@ generateMakefile classFiles progName compiler ccFlags incPath defines libs =
     decl "INC" [incPath]
     $$
     decl "LIB" [libs]
+    $$
+    decl "LOCAL" [locals]
+    $$
+    decl "LINK" [links]
     $$
     decl "FLAGS" [ccFlags]
     $$
@@ -50,7 +56,7 @@ generateMakefile classFiles progName compiler ccFlags incPath defines libs =
          empty
     $\$
     rule target deps
-         (cc [flags, i inc, i parent, deps, lib, lib, defs, o target])
+         (cc [flags, i inc, i parent, deps, lib, lib, defs, local, link, o target])
     $\$
     rule bench deps
          (cc [benchFlags, i inc, i parent, deps, lib, lib, defs, o target])
@@ -86,7 +92,7 @@ generateLibraryMakefile classFiles libName compiler ccFlags incPath defines =
          (cc [flags, i inc, (text "-c -o $@ $<")])
     $\$
     rule (text "module") deps
-         (text "ar -rcs ../$(TARGET) $<")
+         (text "ar -rcs ../$(TARGET) *.o")
     $\$
     rule clean empty
          (rm [target, (text "*.o")])
