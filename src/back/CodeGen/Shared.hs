@@ -14,7 +14,7 @@ import Data.List
 -- | Generates a file containing the shared (but not included) C
 -- code of the translated program
 generateShared :: A.Program -> ProgramTable -> CCode FIN
-generateShared prog@(A.Program{A.source, A.classes, A.functions, A.imports}) table =
+generateShared prog@(A.Program{A.source, A.moduledecl, A.classes, A.functions, A.imports}) table =
     Program $
     Concat $
       (LocalInclude "header.h") :
@@ -25,8 +25,7 @@ generateShared prog@(A.Program{A.source, A.classes, A.functions, A.imports}) tab
       -- sharedMessages ++
       [commentSection "Global functions"] ++
       globalFunctions ++
-
-      [mainFunction]
+      [mainFunction moduledecl]
     where
       globalFunctions =
         [translate f table globalFunction | f <- functions] ++
@@ -57,7 +56,7 @@ generateShared prog@(A.Program{A.source, A.classes, A.functions, A.imports}) tab
                AssignTL (Decl (ponyMsgT, Var "m_run_closure"))
                         (Record [Int 3, Record [encorePrimitive, encorePrimitive, encorePrimitive]])
 
-      mainFunction =
+      mainFunction A.NoModule =
           Function (Typ "int") (Nam "main")
                    [(Typ "int", Var "argc"), (Ptr . Ptr $ char, Var "argv")]
                    $ Return encoreStart
@@ -76,7 +75,7 @@ generateShared prog@(A.Program{A.source, A.classes, A.functions, A.imports}) tab
                       in Call (Nam "puts") [String msg]
             isLocalMain c@A.Class{A.cname} = A.isMainClass c &&
                                              getRefSourceFile cname == source
-
+      mainFunction A.Module{A.modname} = commentSection ("No main function needed for " ++ (show modname))
 
 commentSection :: String -> CCode Toplevel
 commentSection s = Embed $ (take (5 + length s) $ repeat '/') ++ "\n// " ++ s

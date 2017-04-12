@@ -52,7 +52,7 @@ stdLib source = [lib "String", lib "Std"]
                     ,itarget = explicitNamespace [Name s]
                     ,isource = Nothing
                     ,iqualified = False
-                    ,ilibrary=False --NOTE:Should be True
+                    ,ilibrary=True --NOTE:Should be True
                     ,iselect = Nothing
                     ,ialias  = Nothing
                     ,ihiding = Nothing
@@ -74,15 +74,17 @@ findAndImportModules importDirs preludePaths sourceDir sourceName
                                     ,typedefs
                                     ,functions} = do
 
-  let withStdlib = addStdLib sourcePath moduledecl imports
+  let withStdlib = if moduledecl == NoModule 
+                   then addStdLib sourcePath moduledecl imports
+                   else imports
   sources <- mapM (findSource importDirs sourceDir) withStdlib
   let imports'   = zipWith setImportSource sources withStdlib
-      classes'   = map (setClassSource shortSource) classes
-      traits'    = map (setTraitSource shortSource) traits
-      typedefs'  = map (setTypedefSource shortSource) typedefs
-      functions' = map (setFunctionSource shortSource) functions
+      classes'   = map (setClassSource sourcePath) classes
+      traits'    = map (setTraitSource sourcePath) traits
+      typedefs'  = map (setTypedefSource sourcePath) typedefs
+      functions' = map (setFunctionSource sourcePath) functions
       precompiled' = (moduleLibrary moduledecl)
-      p' = p{source    = shortSource
+      p' = p{source    = sourcePath
             ,precompiled = precompiled'
             ,imports   = imports'
             ,classes   = classes'
@@ -90,7 +92,7 @@ findAndImportModules importDirs preludePaths sourceDir sourceName
             ,typedefs  = typedefs'
             ,functions = functions'
             }
-      newTable = Map.insert shortSource p' table
+      newTable = Map.insert sourcePath p' table
   foldM (importModule importDirs preludePaths) newTable sources
   where
     moduleNamespace = if moduledecl == NoModule
@@ -98,14 +100,12 @@ findAndImportModules importDirs preludePaths sourceDir sourceName
                       else explicitNamespace [modname moduledecl]
     
     sourcePath = sourceDir </> sourceName
-    shortSource = shortenPrelude preludePaths sourcePath
+    --shortSource = sourcePath--shortenPrelude preludePaths sourcePath
     namePrefix = if moduledecl == NoModule
                  then Name ""
                  else modname moduledecl
 
-    setImportSource source i =
-        let shortPath = shortenPrelude preludePaths source
-        in i{isource = Just shortPath}
+    setImportSource source i = i{isource = Just source}
     setClassSource source c@Class{cname} =
       c{cname = setRefNamespace moduleNamespace $
                 setRefSourceFile source (setRefNamePrefix namePrefix cname)}
@@ -166,8 +166,8 @@ importModule importDirs preludePaths table source
            in findAndImportModules importDirs preludePaths
                                    sourceDir sourceName table ast
 
-compressProgramTable' :: ProgramTable -> Program
-compressProgramTable' = foldl1 joinTwo
+compressProgramTable' :: Program -> ProgramTable -> Program
+compressProgramTable' source modules = foldl joinTwo source modules
   where
     joinTwo :: Program -> Program -> Program
     joinTwo p@Program{etl=etl,  functions=functions,  traits=traits,  classes=classes}
@@ -176,11 +176,11 @@ compressProgramTable' = foldl1 joinTwo
                   traits=traits ++ traits', classes=classes ++ classes'}
 
 
-compressProgramTable :: ProgramTable -> Program
-compressProgramTable table = 
+compressProgramTable :: Program -> ProgramTable -> Program
+compressProgramTable source table = 
   let libs = Map.filter (precompiled) table
       regular   = Map.filter (not . precompiled) table
-      prog      = compressProgramTable' regular
+      prog      = compressProgramTable' source regular
   in
       addLibraries prog libs
 

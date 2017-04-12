@@ -26,7 +26,7 @@ import SystemUtils
 import Language.Haskell.TH -- for Template Haskell hackery
 import Text.Printf
 import qualified Text.PrettyPrint.Boxes as Box
-import System.FilePath (splitPath, joinPath, dropExtension)
+import System.FilePath (splitPath, joinPath, dropExtension, takeDirectory)
 import Text.Megaparsec.Error(errorPos, parseErrorTextPretty)
 import AST.Meta(showSourcePos)
 
@@ -237,6 +237,8 @@ compileProgram prog sourcePath options =
            classes = processClassNames (getClasses emitted)
            header = getHeader emitted
            shared = getShared emitted
+           libImports = libraries prog
+       --mapM (putStrLn . show . source)  libs
        mapM_ (writeClass srcDir) classes
        let encoreNames =
              map (\(name, _) -> changeFileExt name "encore.c") classes
@@ -258,17 +260,21 @@ compileProgram prog sourcePath options =
                         Nothing             -> ""
            debug = if Debug `elem` options then "-g" else ""
            libs  = libPath ++ "*.a"
+           locals = concatMap (\str -> "-L " ++ str ++ " ") (nub (map (show . takeDirectory . source) libImports))
+           links  = concatMap (\p -> "-lenc" ++ ((show . moduleName . moduledecl) p) ++ " ") libImports                        
            cmd   = pg <+> opt <+> flags <+> libs <+> incs <+> debug
            compileCmd = cc <+> cmd <+> oFlag <+> unwords classFiles <+>
                         sharedFile <+> libs <+> libs <+> defines
+
        withFile headerFile WriteMode (output header)
        withFile sharedFile WriteMode (output shared)
        withFile makefile   WriteMode (output $
-          generateMakefile encoreNames execName cc cmd incPath defines libs)
+          generateMakefile encoreNames execName cc cmd incPath defines libs locals links)
+
        when ((TypecheckOnly `notElem` options) || (Run `elem` options))
            (do files  <- getDirectoryContents "."
                let ofilesInc = unwords (filter (isSuffixOf ".o") files)
-               exitCode <- system $ compileCmd <+> ofilesInc
+               exitCode <- system $ compileCmd <+> ofilesInc <+> locals <+> links
                case exitCode of
                  ExitSuccess -> return ()
                  ExitFailure n ->
@@ -298,7 +304,7 @@ compileLibrary originalProg prog sourcePath options =
          incPath = encorecDir <> "inc/"
          sourceName = dropExtension sourcePath
          srcDir = sourceName ++ "_src"
-         libName = sourceName ++ ".a"
+         libName = "libenc" ++ sourceName ++ ".a"
          interface = sourceName ++ ".emi"
          headerFile = srcDir </> "header.h"
          sharedFile = srcDir </> "shared.c"
@@ -416,8 +422,15 @@ main =
        let (mainDir, mainName) = dirAndName sourcePath
            mainSource = mainDir </> mainName
 
+       source <- case Map.lookup mainSource optimizedTable of
+                        Just s -> return s
+                        Nothing -> abort $ show "Error" -- Show a better error..
+        
+       let rest = Map.delete mainSource optimizedTable
+
+
        let fullAst = setProgramSource mainSource $
-                     compressProgramTable optimizedTable
+                     compressProgramTable source rest
 
        unless (TypecheckOnly `elem` options || CreateLibrary `elem` options) $
          case checkForMainClass mainSource fullAst of

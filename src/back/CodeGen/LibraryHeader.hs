@@ -56,7 +56,9 @@ generateLibraryHeader p =
     runtimeTypeDecls allClasses traits ++
 
     [commentSection "Message IDs"] ++
-    [messageEnums classes] ++
+    if null classes
+    then [commentSection "No classes"]
+    else [messageEnums classes] ++
     map messageEnums (filter (not . null) libClassList) ++
 
     [commentSection "Message types"] ++
@@ -172,8 +174,11 @@ generateLibraryHeader p =
                     methodMsgNames = map (show . (uncurry futMsgId)) meta
                     oneWayMsgNames = map (show . (uncurry oneWayMsgId)) meta
                     allNames = methodMsgNames ++ oneWayMsgNames
+                    safeTail xs
+                      | null xs   = []
+                      | otherwise = tail xs
                 in
-                       Enum $ (Nam  $ (head allNames) ++ "= 1024") : map Nam (tail allNames)
+                    Enum $ (Nam  $ (head allNames) ++ "= 1024") : map Nam (safeTail allNames)
       
      classEnums classes =
        let
