@@ -190,7 +190,8 @@ data Function =
       funheader :: FunctionHeader,
       funbody   :: Expr,
       funlocals :: [Function],
-      funsource :: FilePath
+      funsource :: FilePath,
+      funNamePrefix :: Name
     } deriving (Show)
 
 functionName = hname . funheader

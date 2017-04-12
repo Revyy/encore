@@ -613,6 +613,7 @@ funHeaderAndBody =
                      ,funbody = makeBody block
                      ,funlocals = []
                      ,funsource = ""
+                     ,funNamePrefix = Name ""
                      }
 
 makeBody :: [Expr] -> Expr
