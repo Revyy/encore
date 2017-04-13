@@ -17,7 +17,7 @@ generateShared :: A.Program -> ProgramTable -> CCode FIN
 generateShared prog@(A.Program{A.source, A.moduledecl, A.classes, A.functions, A.imports}) table =
     Program $
     Concat $
-      (LocalInclude "header.h") :
+      (LocalInclude localInclude) :
 
       embeddedCode ++
 
@@ -27,6 +27,11 @@ generateShared prog@(A.Program{A.source, A.moduledecl, A.classes, A.functions, A
       globalFunctions ++
       [mainFunction moduledecl]
     where
+
+      localInclude = if A.moduledecl prog == A.NoModule
+                     then ("enc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
+                     else ("libenc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
+
       globalFunctions =
         [translate f table globalFunction | f <- functions] ++
         [globalFunctionWrapper f | f <- functions] ++

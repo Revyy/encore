@@ -104,7 +104,7 @@ instance HasMeta ModuleDecl where
     setType ty i =
         error "AST.hs: Cannot set the type of a ModuleDecl"
 
-moduleName NoModule = Name "<default>"
+moduleName NoModule = Name "default"
 moduleName Module{modname} = modname
 
 moduleExports NoModule = Nothing

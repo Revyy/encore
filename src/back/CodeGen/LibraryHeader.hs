@@ -14,6 +14,7 @@ import CCode.PrettyCCode ()
 import qualified AST.AST as A
 import qualified Identifiers as ID
 import qualified Types as Ty
+import Data.Char (toUpper)
 
 -- | Generates the C header file for the translated program
 -- | This function generates all the common code, generateHeaderRecurser generates class specific code
@@ -21,9 +22,9 @@ generateLibraryHeader :: A.Program -> CCode FIN
 
 generateLibraryHeader p =
     Program $
-    IfNDefine "ENCORE_LIB_H" $
+    IfNDefine headerDef $
     Concat $
-    HashDefine "ENCORE_LIB_H" :
+    HashDefine headerDef :
     HashDefine "_XOPEN_SOURCE 800" :
     (Includes [
       "pool.h",
@@ -41,55 +42,55 @@ generateLibraryHeader p =
 
     [commentSection "Embedded code"] ++
     map Embed embedded ++
-    map Embed (concatMap A.allEmbedded libs) ++
+    --map Embed (concatMap A.allEmbedded libs) ++
 
     [commentSection "Class type decls"] ++
-    classTypeDecls allClasses ++
+    classTypeDecls classes ++
 
-    [commentSection "Trait type decls"] ++
-    traitTypeDecls traits ++
+    --[commentSection "Trait type decls"] ++
+    --traitTypeDecls traits ++
 
     [commentSection "Passive class types"] ++
-    passiveTypes allClasses ++
+    passiveTypes classes ++
 
     [commentSection "Runtime types"] ++
-    runtimeTypeDecls allClasses traits ++
+    runtimeTypeDecls classes traits ++
 
     [commentSection "Message IDs"] ++
     if null classes
     then [commentSection "No classes"]
     else [messageEnums classes] ++
-    map messageEnums (filter (not . null) libClassList) ++
+    --map messageEnums (filter (not . null) libClassList) ++
 
     [commentSection "Message types"] ++
-    ponyMsgTTypedefs allClasses ++
-    ponyMsgTImpls allClasses ++
+    ponyMsgTTypedefs classes ++
+    ponyMsgTImpls classes ++
 
     [commentSection "Global functions"] ++
-    globalFunctions allFunctions ++
+    globalFunctions functions ++
 
     [commentSection "Class IDs"] ++
     [classEnums classes] ++
-    map classEnums (filter emptyClassList libClassList) ++
+    --map classEnums (filter emptyClassList libClassList) ++
 
     [commentSection "Trace functions"] ++
-    traceFnDecls allClasses ++
+    traceFnDecls classes ++
 
     [commentSection "Runtime type init functions"] ++
-    runtimeTypeFnDecls allClasses ++
+    runtimeTypeFnDecls classes ++
 
     [commentSection "Methods"] ++
-    concatMap methodFwds allClasses ++
-    concatMap wrapperMethods allClasses ++
+    concatMap methodFwds classes ++
+    concatMap wrapperMethods classes ++
 
     [commentSection "Constructors"] ++
-    concatMap constructors allClasses ++
+    concatMap constructors classes ++
 
     [commentSection "Main actor rtti"] ++
-    [externMainRtti] ++
+    [externMainRtti] -- ++
 
-    [commentSection "Trait types"] ++
-    traitTypes traits
+    --[commentSection "Trait types"] ++
+    --traitTypes traits
    where
      externMainRtti = DeclTL (Typ "extern pony_type_t", Var "_enc__active_Main_type")
 
@@ -107,13 +108,14 @@ generateLibraryHeader p =
      embedded = A.allEmbedded p
 
      libs = A.libraries p
+     libHeaders = map (\p -> "libenc" ++ ((show . A.moduleName . A.moduledecl) p) ++ ".h") libs
+     headerDef = "ENCORE_LIB_" ++ ((map toUpper . show . A.moduleName . A.moduledecl) p) ++ "_H" 
+     --libClassList = map A.classes $ libs
+     --libClasses = concatMap A.classes libs
+     --libFunctions = concatMap A.functions libs
 
-     libClassList = map A.classes $ libs
-     libClasses = concatMap A.classes libs
-     libFunctions = concatMap A.functions libs
-
-     allClasses = classes ++ libClasses
-     allFunctions = functions ++ libFunctions
+     --allClasses = classes ++ libClasses
+     --allFunctions = functions ++ libFunctions
 
 
      emptyClassList :: [A.ClassDecl] -> Bool
@@ -226,7 +228,7 @@ generateLibraryHeader p =
            in
              StructDecl (AsType $ refTypeName tname) [self]
 
-     runtimeTypeDecls classes traits = map typeDecl classes ++ map typeDecl traits
+     runtimeTypeDecls classes traits = map typeDecl classes -- ++ map typeDecl traits
        where
          typeDecl ref =
            let
