@@ -243,9 +243,20 @@ compileProgram prog sourcePath options =
        let encoreNames =
              map (\(name, _) -> changeFileExt name "encore.c") classes
            classFiles = map (srcDir </>) encoreNames
-           headerFile = srcDir </> "header.h"
+           headerFile = srcDir </> ("enc" ++ ((show . moduleName . moduledecl) prog) ++ ".h")
            sharedFile = srcDir </> "shared.c"
            makefile   = srcDir </> "Makefile"
+
+           libFolders = let getBaseDir p = ((show . takeDirectory . source) p) 
+                            getSrcDir p = ((show . moduleName . moduledecl) p) ++ "_src"
+                        in
+                          (nub (map (\p -> getBaseDir p </> getSrcDir p) libImports))
+           
+
+           localLibs = concatMap (\str -> "-L " ++ str ++ " ") libFolders
+           localHeaderIncludes = concatMap (\str -> "-I " ++ str ++ " ") libFolders
+           links  = concatMap (\p -> "-lenc" ++ ((show . moduleName . moduledecl) p) ++ " ") libImports   
+
            cc    = "clang"
            customFlags = case find isCustomFlags options of
                            Just (CustomFlags str) -> str
@@ -260,21 +271,20 @@ compileProgram prog sourcePath options =
                         Nothing             -> ""
            debug = if Debug `elem` options then "-g" else ""
            libs  = libPath ++ "*.a"
-           locals = concatMap (\str -> "-L " ++ str ++ " ") (nub (map (show . takeDirectory . source) libImports))
-           links  = concatMap (\p -> "-lenc" ++ ((show . moduleName . moduledecl) p) ++ " ") libImports                        
-           cmd   = pg <+> opt <+> flags <+> libs <+> incs <+> debug
+                                
+           cmd   = pg <+> opt <+> flags <+> libs <+> incs <+> localHeaderIncludes <+> debug
            compileCmd = cc <+> cmd <+> oFlag <+> unwords classFiles <+>
-                        sharedFile <+> libs <+> libs <+> defines
+                        sharedFile <+> defines
 
        withFile headerFile WriteMode (output header)
        withFile sharedFile WriteMode (output shared)
        withFile makefile   WriteMode (output $
-          generateMakefile encoreNames execName cc cmd incPath defines libs locals links)
+          generateMakefile encoreNames execName cc cmd incPath defines libs localHeaderIncludes localLibs links)
 
        when ((TypecheckOnly `notElem` options) || (Run `elem` options))
            (do files  <- getDirectoryContents "."
                let ofilesInc = unwords (filter (isSuffixOf ".o") files)
-               exitCode <- system $ compileCmd <+> ofilesInc <+> locals <+> links
+               exitCode <- system $ compileCmd <+> ofilesInc <+> localLibs <+> links
                case exitCode of
                  ExitSuccess -> return ()
                  ExitFailure n ->
@@ -306,7 +316,7 @@ compileLibrary originalProg prog sourcePath options =
          srcDir = sourceName ++ "_src"
          libName = "libenc" ++ sourceName ++ ".a"
          interface = sourceName ++ ".emi"
-         headerFile = srcDir </> "header.h"
+         headerFile = srcDir </> ("libenc" ++ ((show . moduleName . moduledecl) prog) ++ ".h")
          sharedFile = srcDir </> "shared.c"
          makefile   = srcDir </> "Makefile"  
     

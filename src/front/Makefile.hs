@@ -30,13 +30,13 @@ o = (text "-o" <+>)
 parent = text ".."
 
 generateMakefile :: [String] ->
-   String -> String -> String -> String -> String -> String -> String -> String -> Doc
-generateMakefile classFiles progName compiler ccFlags incPath defines libs locals links =
+   String -> String -> String -> String -> String -> String -> String -> String -> String -> Doc
+generateMakefile classFiles progName compiler ccFlags incPath defines libs headers locals links =
     decl "CC" [compiler]
     $$
     decl "TARGET" [progName]
     $$
-    decl "INC" [incPath]
+    decl "INC" [incPath, headers]
     $$
     decl "LIB" [libs]
     $$
@@ -92,7 +92,7 @@ generateLibraryMakefile classFiles libName compiler ccFlags incPath defines =
          (cc [flags, i inc, (text "-c -o $@ $<")])
     $\$
     rule (text "module") deps
-         (text "ar -rcs ../$(TARGET) *.o")
+         (text "ar -rcs $(TARGET) *.o")
     $\$
     rule clean empty
          (rm [target, (text "*.o")])
