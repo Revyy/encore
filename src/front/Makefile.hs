@@ -74,13 +74,13 @@ generateMakefile classFiles progName compiler ccFlags incPath defines libs heade
                           tab <> cmd
 
 generateLibraryMakefile :: [String] ->
-   String -> String -> String -> String -> String -> Doc
-generateLibraryMakefile classFiles libName compiler ccFlags incPath defines =
+   String -> String -> String -> String -> String -> String -> Doc
+generateLibraryMakefile classFiles libName compiler ccFlags incPath headers defines =
     decl "CC" [compiler]
     $$
     decl "TARGET" [libName]
     $$
-    decl "INC" [incPath]
+    decl "INC" [incPath, headers]
     $$
     decl "FLAGS" [ccFlags]
     $$

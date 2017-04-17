@@ -35,8 +35,9 @@ generateLibraryHeader p =
       "stdarg.h",
       "dtrace_encore.h"
      ]) :
+    (Includes libHeaders) :
     HashDefine "UNIT ((void*) -1)" :
-
+    
     [commentSection "Shared messages"] ++
     sharedMessages ++
 

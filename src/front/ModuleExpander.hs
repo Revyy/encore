@@ -24,6 +24,7 @@ import qualified Data.Map.Strict as Map
 import Data.List
 import Text.Megaparsec(parseErrorPretty, initialPos)
 import Debug.Trace
+import Data.Maybe (fromJust)
 
 type ProgramTable = Map FilePath Program
 
@@ -100,7 +101,6 @@ findAndImportModules importDirs preludePaths sourceDir sourceName
                       else explicitNamespace [modname moduledecl]
     
     sourcePath = sourceDir </> sourceName
-    --shortSource = sourcePath--shortenPrelude preludePaths sourcePath
     namePrefix = if moduledecl == NoModule
                  then Name ""
                  else modname moduledecl
@@ -150,8 +150,7 @@ findSource importDirs sourceDir Import{itarget, ilibrary} = do
 importModule :: [FilePath] -> [FilePath] -> ProgramTable -> FilePath
                 -> IO ProgramTable
 importModule importDirs preludePaths table source
-  | shortSource <- shortenPrelude preludePaths source
-  , Map.member shortSource table = return table
+  |  Map.member source table = return table
   | otherwise = do
       raw <- readFile source
       let code = if "#+literate\n" `isPrefixOf` raw
@@ -181,7 +180,8 @@ compressProgramTable source table =
   let libs = Map.filter (precompiled) table
       regular   = Map.filter (not . precompiled) table
       prog      = compressProgramTable' source regular
-  in
+      (resolved, _) = resolveDeps libs prog Map.empty Map.empty
+  in 
       addLibraries prog libs
 
 
@@ -191,3 +191,39 @@ addLibraries source libs = foldl joinTwo source libs
     joinTwo :: Program -> Program -> Program
     joinTwo p@Program{traits=traits, libraries=libraries}
               p2@Program{traits=traits'} = p{libraries=libraries ++ [p2]}
+
+
+resolveDeps :: ProgramTable -> Program -> ProgramTable -> ProgramTable -> (ProgramTable, ProgramTable)
+resolveDeps table lib@Program{source, imports} resolved unresolved = do
+    let imports' = filter ilibrary imports
+        updUnresolved = Map.insert source lib unresolved
+        (resolved', unresolved') = foldl (resolve table) (resolved, updUnresolved) imports'
+    (resolved', unresolved') 
+
+
+resolveDeps' :: ProgramTable -> Program -> ProgramTable -> ProgramTable -> (ProgramTable, ProgramTable)
+resolveDeps' table lib@Program{source, imports} resolved unresolved = do
+    let imports' = filter ilibrary imports
+        updUnresolved = Map.insert source lib unresolved
+        (resolved', unresolved') = foldl (resolve table) (resolved, updUnresolved) imports'
+    let finalResolved = (Map.insert source lib resolved')
+        finalUnResolved = (Map.delete source unresolved')
+    (finalResolved, finalUnResolved) 
+  --where
+    --resolve :: (ProgramTable, ProgramTable) -> ImportDecl -> (ProgramTable, ProgramTable)
+
+resolve :: ProgramTable -> (ProgramTable, ProgramTable) -> ImportDecl -> (ProgramTable, ProgramTable)
+resolve table (resolved, unresolved) i@Import{isource}
+  | Map.member (fromJust isource) resolved = (resolved, unresolved)
+  | Map.notMember (fromJust isource) resolved && Map.member (fromJust isource) unresolved = 
+        error $ " *** Circular dependency detected " <+> "***"
+  | otherwise = let (resolved', unresolved') = do 
+                      let key = fromJust isource
+                          lib' = fromJust (Map.lookup key table)
+                      resolveDeps' table lib' resolved unresolved
+                      in ((Map.union resolved resolved'), (Map.union unresolved unresolved'))
+
+
+  
+
+  --lib@Program{source, imports} 
