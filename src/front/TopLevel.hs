@@ -255,7 +255,7 @@ compileProgram prog sourcePath options =
 
            localLibs = concatMap (\str -> "-L " ++ str ++ " ") libFolders
            localHeaderIncludes = concatMap (\str -> "-I " ++ str ++ " ") libFolders
-           links  = concatMap (\p -> "-lenc" ++ ((show . moduleName . moduledecl) p) ++ " ") libImports   
+           links  = concatMap (\p -> "-lenc" ++ ((show . moduleName . moduledecl) p) ++ " ") (reverse libImports)
 
            cc    = "clang"
            customFlags = case find isCustomFlags options of
@@ -324,10 +324,17 @@ compileLibrary originalProg prog sourcePath options =
      let emitted = compileToC prog
          classes = processClassNames (getClasses emitted)
          shared = getShared emitted
+         libImports = libraries prog
     
-     let encoreNames =
-           map (\(name, _) -> changeFileExt name "encore.o") classes
-        
+     let encoreNames = map (\(name, _) -> changeFileExt name "encore.o") classes
+
+         libFolders = let getBaseDir p = ((show . takeDirectory . source) p) 
+                          getSrcDir p = ((show . moduleName . moduledecl) p) ++ "_src"
+                        in
+                          (nub (map (\p -> getBaseDir p </> getSrcDir p) libImports))
+
+         localHeaderIncludes = concatMap (\str -> "-I " ++ str ++ " ") libFolders
+
          cc    = "clang"
          customFlags = case find isCustomFlags options of
                             Just (CustomFlags str) -> str
@@ -344,7 +351,7 @@ compileLibrary originalProg prog sourcePath options =
      withFile headerFile WriteMode (output header)
      withFile sharedFile WriteMode (output shared)
      withFile makefile   WriteMode (output $
-           generateLibraryMakefile encoreNames libName cc cmd incPath defines)
+           generateLibraryMakefile encoreNames libName cc cmd incPath localHeaderIncludes defines)
      writeFile interface (show (ppLibrary originalProg))
      --Compile
      exitCode <- system $ compileCmd
