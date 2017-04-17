@@ -29,8 +29,11 @@ generateShared prog@(A.Program{A.source, A.moduledecl, A.classes, A.functions, A
     where
 
       localInclude = if A.moduledecl prog == A.NoModule
-                     then ("enc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
-                     else ("libenc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
+                     then nonLibHeaderName
+                     else libHeaderName
+      
+      nonLibHeaderName = ("enc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
+      libHeaderName = ("libenc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
 
       globalFunctions =
         [translate f table globalFunction | f <- functions] ++

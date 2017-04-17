@@ -1,6 +1,7 @@
 -- This file was automatically converted by encorec
 
 module MidImport
+use String
 import DeepLib
 local class Bar
   def name() : String

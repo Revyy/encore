@@ -1,6 +1,7 @@
 -- This file was automatically converted by encorec
 
 module Lib
+use String
 fun bar() : int
   10
 end

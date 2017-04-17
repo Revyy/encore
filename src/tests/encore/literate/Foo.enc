@@ -7,7 +7,7 @@ using the --literate flag that also works for imported modules.
 
 #+begin_src encore
 module Foo
-
+use String
 fun foo() : unit
   println("In foo")
 end

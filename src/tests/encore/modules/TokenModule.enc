@@ -1,6 +1,7 @@
 -- This file was automatically converted by encorec
 
 module TokenModule
+use String
 linear class Token
   def foo() : unit
     println("foo")

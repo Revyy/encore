@@ -164,11 +164,15 @@ data FunctionHeader =
         htypeparams :: [Type],
         hname       :: Name,
         htype       :: Type,
-        hparams     :: [ParamDecl]
+        hparams     :: [ParamDecl],
+        hnamePrefix :: Name
     } deriving(Eq, Show)
 
 
 setHeaderType ty h = h{htype = ty}
+
+sethnamePrefix :: Name -> FunctionHeader -> FunctionHeader
+sethnamePrefix n h = h {hnamePrefix = n}
 
 setHeaderModifier :: [Modifier] -> FunctionHeader -> FunctionHeader
 setHeaderModifier mod h = h {hmodifiers = nub mod}
@@ -485,6 +489,7 @@ emptyConstructor cdecl =
                               ,hname = constructorName
                               ,hparams = []
                               ,htype = unitType
+                              ,hnamePrefix = Name ""
                               }
              ,mbody = Skip (meta pos)
              ,mlocals = []}
@@ -867,6 +872,6 @@ getTrait t p =
   let
     match t trait = getId t == getId (tname trait)
   in
-    fromJust $ find (match t) (traits p)
+    fromJust $ find (match t) ((traits p) ++ (concatMap traits (libraries p)))
 
 allEmbedded = map etlheader . etl

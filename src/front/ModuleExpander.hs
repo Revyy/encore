@@ -116,7 +116,7 @@ findAndImportModules importDirs preludePaths sourceDir sourceName
       d{typedefdef = setRefNamespace moduleNamespace $
                      setRefSourceFile source (setRefNamePrefix namePrefix typedefdef)}
     setFunctionSource source f =
-      f{funsource = source}
+      f{funsource = source, funNamePrefix = namePrefix, funheader = (sethnamePrefix namePrefix (funheader f))}
 
 buildModulePath :: Namespace -> Bool -> FilePath
 buildModulePath (NSExplicit ns) ilibrary =
@@ -190,4 +190,4 @@ addLibraries source libs = foldl joinTwo source libs
   where
     joinTwo :: Program -> Program -> Program
     joinTwo p@Program{traits=traits, libraries=libraries}
-              p2@Program{traits=traits'} = p{traits=traits ++ traits', libraries=libraries ++ [p2]}
+              p2@Program{traits=traits'} = p{libraries=libraries ++ [p2]}

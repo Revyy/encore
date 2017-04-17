@@ -1,5 +1,5 @@
 module RecurseA
-
+use String
 import RecurseB
 
 fun foo() : int
