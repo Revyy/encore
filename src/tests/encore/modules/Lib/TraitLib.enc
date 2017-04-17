@@ -1,5 +1,5 @@
 module TraitLib
-
+use String
 read trait S
   def s(): unit
     println("In TraitLib.S")

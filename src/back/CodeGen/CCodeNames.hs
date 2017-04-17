@@ -291,7 +291,7 @@ globalClosureName funname =
 functionClosureNameOf :: A.Function -> CCode Name
 functionClosureNameOf f =
     globalClosureName $ ID.setSourceFile (A.funsource f) $
-                        ID.topLevelQName (ID.Name ((show $ A.funNamePrefix f) ++ "_" ++ (show $ A.functionName f)))
+                        ID.topLevelQName (ID.Name ((show $ A.funNamePrefix f) ++ (show $ A.functionName f)))
 
 globalFunctionName :: ID.QualifiedName -> CCode Name
 globalFunctionName funname =
@@ -304,19 +304,19 @@ localFunctionName funname =
 globalFunctionNameOf :: A.Function -> CCode Name
 globalFunctionNameOf f@A.Function{A.funsource} =
   globalFunctionName $ ID.setSourceFile funsource $
-                       ID.topLevelQName (ID.Name ((show $ A.funNamePrefix f) ++ "_" ++ (show $ A.functionName f)))
+                       ID.topLevelQName (ID.Name ((show $ A.funNamePrefix f) ++ (show $ A.functionName f)))
 
 localFunctionNameOf :: A.Function -> CCode Name
 localFunctionNameOf f@A.Function{A.funsource} =
   localFunctionName $ ID.setSourceFile funsource $
-                      ID.topLevelQName (ID.Name ((show $ A.funNamePrefix f) ++ "_" ++ (show $ A.functionName f)))
+                      ID.topLevelQName (ID.Name ((show $ A.funNamePrefix f) ++ (show $ A.functionName f)))
 
 functionWrapperNameOf :: A.Function -> CCode Name
 functionWrapperNameOf f@A.Function{A.funsource} =
   Nam $ encoreName "fun_wrapper" $
       qualifiedToString $
       ID.setSourceFile funsource $
-      ID.topLevelQName (ID.Name ((show $ A.funNamePrefix f) ++ "_" ++ (show $ A.functionName f)))
+      ID.topLevelQName (ID.Name ((show $ A.funNamePrefix f) ++ (show $ A.functionName f)))
 
 functionAsValueWrapperNameOf :: A.Expr -> CCode Name
 functionAsValueWrapperNameOf (A.FunctionAsValue {A.qname}) =

@@ -28,9 +28,10 @@ desugarProgram p@(Program{traits, classes, functions}) =
   -- Automatically give await and supend to active classes
   -- Then the Actor trait is in place, this desugaring step will be changed
   -- so that the Actor trait is included instead
-    desugarClass c@(Class{cmeta, cmethods})
+    desugarClass c@(Class{cmeta, cmethods, cname})
       | isActive c = c{cmethods = map desugarMethod (await:suspend:cmethods)}
       where
+        namePrefix = getRefNamePrefix cname
         await = Method{mmeta
                       ,mheader=awaitHeader
                       ,mlocals=[]
@@ -40,7 +41,8 @@ desugarProgram p@(Program{traits, classes, functions}) =
                             ,htypeparams=[typeVar "_t"]
                             ,hname=Name "await"
                             ,htype=unitType
-                            ,hparams=[awaitParam]}
+                            ,hparams=[awaitParam]
+                            ,hnamePrefix = namePrefix} --NOTE: Maybe fix?
         awaitParam = Param{pmeta, pmut=Val, pname=Name "f", ptype=futureType $ typeVar "_t"}
         suspend = Method{mmeta, mheader=suspendHeader, mlocals=[], mbody=Suspend emeta}
         suspendHeader = Header{hmodifiers=[]
@@ -48,7 +50,8 @@ desugarProgram p@(Program{traits, classes, functions}) =
                               ,htypeparams=[]
                               ,hname=Name "suspend"
                               ,htype=unitType
-                              ,hparams=[]}
+                              ,hparams=[]
+                              ,hnamePrefix = namePrefix}
         pmeta = Meta.meta (Meta.sourcePos cmeta)
         emeta = Meta.meta (Meta.sourcePos cmeta)
         mmeta = Meta.meta (Meta.sourcePos cmeta)

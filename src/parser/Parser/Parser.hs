@@ -559,6 +559,7 @@ functionHeader =
                  ,hname
                  ,hparams
                  ,htype
+                 ,hnamePrefix = Name ""
                  }
 
 streamMethodHeader :: EncParser FunctionHeader

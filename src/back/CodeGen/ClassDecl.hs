@@ -55,8 +55,11 @@ translateActiveClass prog cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) table 
       [runtimeTypeDecl cname]
   where
     localInclude = if A.moduledecl prog == A.NoModule
-                   then ("enc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
-                   else ("libenc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
+                   then nonLibHeaderName
+                   else libHeaderName
+      
+    nonLibHeaderName = ("enc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
+    libHeaderName = ("libenc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
 
 typeStructDecl :: A.ClassDecl -> CCode Toplevel
 typeStructDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
@@ -253,8 +256,11 @@ translateSharedClass prog cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) table 
     [runtimeTypeDecl cname]
   where
     localInclude = if A.moduledecl prog == A.NoModule
-                   then ("enc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
-                   else ("libenc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
+                   then nonLibHeaderName
+                   else libHeaderName
+      
+    nonLibHeaderName = ("enc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
+    libHeaderName = ("libenc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
 
 -- | Translates a passive class into its C representation. Note
 -- that there are additional declarations (including the data
@@ -272,8 +278,12 @@ translatePassiveClass prog cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) table
     [runtimePassiveTypeDecl cname]
   where
     localInclude = if A.moduledecl prog == A.NoModule
-                   then ("enc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
-                   else ("libenc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
+                   then nonLibHeaderName
+                   else libHeaderName
+      
+    nonLibHeaderName = ("enc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
+    libHeaderName = ("libenc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
+
     dispatchfunDecl =
       Function (Static void) (classDispatchName cname)
                ([(Ptr (Ptr encoreCtxT), encoreCtxVar),

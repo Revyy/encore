@@ -47,8 +47,8 @@ generateLibraryHeader p =
     [commentSection "Class type decls"] ++
     classTypeDecls classes ++
 
-    --[commentSection "Trait type decls"] ++
-    --traitTypeDecls traits ++
+    [commentSection "Trait type decls"] ++
+    traitTypeDecls traits ++
 
     [commentSection "Passive class types"] ++
     passiveTypes classes ++
@@ -87,10 +87,10 @@ generateLibraryHeader p =
     concatMap constructors classes ++
 
     [commentSection "Main actor rtti"] ++
-    [externMainRtti] -- ++
+    [externMainRtti] ++
 
-    --[commentSection "Trait types"] ++
-    --traitTypes traits
+    [commentSection "Trait types"] ++
+    traitTypes traits
    where
      externMainRtti = DeclTL (Typ "extern pony_type_t", Var "_enc__active_Main_type")
 
@@ -228,7 +228,7 @@ generateLibraryHeader p =
            in
              StructDecl (AsType $ refTypeName tname) [self]
 
-     runtimeTypeDecls classes traits = map typeDecl classes -- ++ map typeDecl traits
+     runtimeTypeDecls classes traits = map typeDecl classes ++ map typeDecl traits
        where
          typeDecl ref =
            let

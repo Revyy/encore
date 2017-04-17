@@ -1,6 +1,7 @@
 -- This file was automatically converted by encorec
 
 module SelectiveLib
+use String
 fun foo() : unit
   println("Foo")
 end
