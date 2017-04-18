@@ -54,9 +54,9 @@ translateActiveClass prog cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) table 
       [dispatchFunDecl cdecl] ++
       [runtimeTypeDecl cname]
   where
-    localInclude = if A.moduledecl prog == A.NoModule
-                   then nonLibHeaderName
-                   else libHeaderName
+    localInclude = if A.precompiled prog
+                   then libHeaderName 
+                   else nonLibHeaderName
       
     nonLibHeaderName = ("enc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
     libHeaderName = ("libenc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
@@ -255,9 +255,9 @@ translateSharedClass prog cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) table 
     [dispatchFunDecl cdecl] ++
     [runtimeTypeDecl cname]
   where
-    localInclude = if A.moduledecl prog == A.NoModule
-                   then nonLibHeaderName
-                   else libHeaderName
+    localInclude = if A.precompiled prog
+                   then libHeaderName 
+                   else nonLibHeaderName
       
     nonLibHeaderName = ("enc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
     libHeaderName = ("libenc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
@@ -277,9 +277,9 @@ translatePassiveClass prog cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) table
     -- [dispatchfunDecl] ++
     [runtimePassiveTypeDecl cname]
   where
-    localInclude = if A.moduledecl prog == A.NoModule
-                   then nonLibHeaderName
-                   else libHeaderName
+    localInclude = if A.precompiled prog
+                   then libHeaderName 
+                   else nonLibHeaderName
       
     nonLibHeaderName = ("enc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
     libHeaderName = ("libenc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")

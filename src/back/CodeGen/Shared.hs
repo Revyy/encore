@@ -25,12 +25,12 @@ generateShared prog@(A.Program{A.source, A.moduledecl, A.classes, A.functions, A
       -- sharedMessages ++
       [commentSection "Global functions"] ++
       globalFunctions ++
-      [mainFunction moduledecl]
+      [mainFunction]
     where
 
-      localInclude = if A.moduledecl prog == A.NoModule
-                     then nonLibHeaderName
-                     else libHeaderName
+      localInclude = if A.precompiled prog
+                     then libHeaderName 
+                     else nonLibHeaderName
       
       nonLibHeaderName = ("enc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
       libHeaderName = ("libenc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
@@ -64,10 +64,12 @@ generateShared prog@(A.Program{A.source, A.moduledecl, A.classes, A.functions, A
                AssignTL (Decl (ponyMsgT, Var "m_run_closure"))
                         (Record [Int 3, Record [encorePrimitive, encorePrimitive, encorePrimitive]])
 
-      mainFunction A.NoModule =
-          Function (Typ "int") (Nam "main")
-                   [(Typ "int", Var "argc"), (Ptr . Ptr $ char, Var "argv")]
-                   $ Return encoreStart
+      mainFunction | not $ A.precompiled prog =
+                      Function (Typ "int") (Nam "main")
+                              [(Typ "int", Var "argc"), (Ptr . Ptr $ char, Var "argv")]
+                              $ Return encoreStart
+                   | A.precompiled prog = 
+                      commentSection ("No main function needed for " ++ (show . A.modname . A.moduledecl) prog)
           where
             encoreStart =
                 case find isLocalMain classes of
@@ -83,7 +85,7 @@ generateShared prog@(A.Program{A.source, A.moduledecl, A.classes, A.functions, A
                       in Call (Nam "puts") [String msg]
             isLocalMain c@A.Class{A.cname} = A.isMainClass c &&
                                              getRefSourceFile cname == source
-      mainFunction A.Module{A.modname} = commentSection ("No main function needed for " ++ (show modname))
+       
 
 commentSection :: String -> CCode Toplevel
 commentSection s = Embed $ (take (5 + length s) $ repeat '/') ++ "\n// " ++ s
