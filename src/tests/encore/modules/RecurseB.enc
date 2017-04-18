@@ -1,5 +1,5 @@
 module RecurseB
-use String
+import String
 import RecurseA
 
 fun bar() : int

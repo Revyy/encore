@@ -1,5 +1,5 @@
 module FarLib
-use String
+import String
 import TraitLib
 
 read class FarFoo : S
