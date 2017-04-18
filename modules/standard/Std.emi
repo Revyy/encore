@@ -1,6 +1,0 @@
-library Std
-read trait Id
-end
-read trait Eq[t]
-  require def eq(other : t) : bool
-end
