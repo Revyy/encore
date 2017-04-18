@@ -22,7 +22,7 @@ module ParT(
     max,
     min,
   )
-use Std
+import Std
 --
 -- empty :: a -> Par[a]
 --

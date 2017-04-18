@@ -36,7 +36,6 @@ import Literate
 import Parser.Parser
 import AST.AST
 import AST.PrettyPrinter
-import AST.LibPrinter
 import AST.Desugarer
 import ModuleExpander
 import Typechecker.Environment(buildLookupTable)
@@ -315,7 +314,6 @@ compileLibrary originalProg prog sourcePath options =
          sourceName = dropExtension sourcePath
          srcDir = sourceName ++ "_src"
          libName = "libenc" ++ sourceName ++ ".a"
-         interface = sourceName ++ ".emi"
          headerFile = srcDir </> ("libenc" ++ ((show . moduleName . moduledecl) prog) ++ ".h")
          sharedFile = srcDir </> "shared.c"
          makefile   = srcDir </> "Makefile"  
@@ -352,18 +350,12 @@ compileLibrary originalProg prog sourcePath options =
      withFile sharedFile WriteMode (output shared)
      withFile makefile   WriteMode (output $
            generateLibraryMakefile encoreNames libName cc cmd incPath localHeaderIncludes defines)
-     writeFile interface (show (ppLibrary originalProg))
      --Compile
      exitCode <- system $ compileCmd
      case exitCode of
        ExitSuccess -> return ()
        ExitFailure n ->
             abort $ " *** Compilation failed with exit code" <+> show n <+> "***"
-
-     --Keep or remove source files
-     unless (KeepCFiles `elem` options)
-                  (do runCommand $ "rm -rf" <+> srcDir
-                      return ())
 
      return srcDir
   where
@@ -412,6 +404,9 @@ main =
                   let pos = NE.head $ errorPos error
                   abort $ showSourcePos pos ++ ":\n" ++
                           parseErrorTextPretty error
+       
+       when (CreateLibrary `elem` options && (moduledecl ast == NoModule)) $ do
+            abort $ show "Error: Only modules can be targeted when using -cl(--create-library)"
 
        when (PrettyPrint `elem` options) $ do
             verbose options "== Pretty printing =="
@@ -448,15 +443,17 @@ main =
 
        let fullAst = setProgramSource mainSource $
                      compressProgramTable source rest
+       
+       let fullAst' = if CreateLibrary `elem` options then fullAst{precompiled=True} else fullAst
 
        unless (TypecheckOnly `elem` options || CreateLibrary `elem` options) $
-         case checkForMainClass mainSource fullAst of
+         case checkForMainClass mainSource fullAst' of
            Just error -> abort $ show error
            Nothing    -> return ()
 
        exeName <- if CreateLibrary `elem` options 
-                  then compileLibrary ast fullAst sourceName options
-                  else compileProgram fullAst sourceName options
+                  then compileLibrary ast fullAst' sourceName options
+                  else compileProgram fullAst' sourceName options
 
        when (Run `elem` options && not (CreateLibrary `elem` options))
            (do verbose options $ "== Running '" ++ exeName ++ "' =="

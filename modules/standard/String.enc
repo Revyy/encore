@@ -1,5 +1,5 @@
 module String
-use Std
+import Std
 EMBED
 #include <string.h>
 #include <strings.h>
