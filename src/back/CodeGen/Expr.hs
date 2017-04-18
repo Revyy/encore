@@ -428,9 +428,10 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
             Nothing ->
                 ID.qLocal $ ID.Name ((show $ A.hnamePrefix header) ++ (show $ A.hname header))
 
-  translate fun@(A.FunctionAsValue {A.typeArgs}) = do
+  translate fun@(A.FunctionAsValue {A.typeArgs, A.qname}) = do
     tmp <- Var <$> Ctx.genSym
-    let funName = functionAsValueWrapperNameOf fun
+    (_, header) <- gets (Ctx.lookupFunction qname)
+    let funName =  functionWrapperNameOf' header --functionAsValueWrapperNameOf fun
     (rtArray, rtArrayInit) <- runtimeTypeArguments typeArgs
     return (tmp,
             Seq $
