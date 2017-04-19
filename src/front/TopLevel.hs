@@ -247,7 +247,7 @@ compileProgram prog sourcePath options =
            makefile   = srcDir </> "Makefile"
 
            libFolders = let getBaseDir p = ((show . takeDirectory . source) p) 
-                            getSrcDir p = ((show . moduleName . moduledecl) p) ++ "_src"
+                            getSrcDir p = ((show . moduleName . moduledecl) p) ++ "_lib"
                         in
                           (nub (map (\p -> getBaseDir p </> getSrcDir p) libImports))
            
@@ -312,7 +312,7 @@ compileLibrary originalProg prog sourcePath options =
      let encorecDir = dirname encorecPath
          incPath = encorecDir <> "inc/"
          sourceName = dropExtension sourcePath
-         srcDir = sourceName ++ "_src"
+         srcDir = sourceName ++ "_lib"
          libName = "libenc" ++ sourceName ++ ".a"
          headerFile = srcDir </> ("libenc" ++ ((show . moduleName . moduledecl) prog) ++ ".h")
          sharedFile = srcDir </> "shared.c"
@@ -327,7 +327,7 @@ compileLibrary originalProg prog sourcePath options =
      let encoreNames = map (\(name, _) -> changeFileExt name "encore.o") classes
 
          libFolders = let getBaseDir p = ((show . takeDirectory . source) p) 
-                          getSrcDir p = ((show . moduleName . moduledecl) p) ++ "_src"
+                          getSrcDir p = ((show . moduleName . moduledecl) p) ++ "_lib"
                         in
                           (nub (map (\p -> getBaseDir p </> getSrcDir p) libImports))
 
@@ -415,6 +415,12 @@ main =
        verbose options "== Importing modules =="
        programTable <- buildProgramTable importDirs preludePaths ast
 
+       when (CreateLibrary `elem` options) $
+            mapM_ (\p -> when (not $ precompiled p) $ reportPrecompileImportError $ source p) 
+                (Map.delete sourcePath programTable)
+              
+             
+
        verbose options "== Desugaring =="
        let desugaredTable = fmap desugarProgram programTable
 
@@ -463,6 +469,9 @@ main =
        verbose options "== Done =="
 
     where
+      reportPrecompileImportError s = abort $ 
+          show ("Error: An imported module is not precompiled. Source: " ++ (show s))
+
       precheckProgramTable :: ProgramTable -> IO ProgramTable
       precheckProgramTable table = do
         let lookupTableTable = fmap buildLookupTable table
