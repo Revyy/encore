@@ -365,7 +365,7 @@ traitMethodSelectorIf table A.Class{A.cname, A.ccomposition} =
             caseNames   = map (msgId tname) methodNames
             caseStmts   = map (Return . methodImplName cname) methodNames
         in zip caseNames caseStmts ++
-           if Ty.isActiveRefType tname then
+           if Ty.isActiveSingleType tname then
              let
                  futCaseNames = map (futMsgId tname) methodNames
                  futCaseStmts =
