@@ -163,7 +163,7 @@ importModule importDirs preludePaths table source
                Right ast  -> return ast
                Left error -> abort $ parseErrorPretty error
       let libName = "libenc" ++ ((show . modname . moduledecl) ast) ++ ".a"
-          libFolder = (dropExtension source) ++ "_src"
+          libFolder = (dropExtension source) ++ "_lib"
           libPath = libFolder </> libName
       libExists <- doesFileExist libPath
 
@@ -229,7 +229,7 @@ resolve table (resolved, resolvedMap, unresolvedMap) i@Import{isource}
             lib =  fromJust (Map.lookup key table)
         if not $ precompiled lib 
         then (resolved, resolvedMap, unresolvedMap) 
-        else error $ " *** Circular dependency detected " <+> "***"
+        else error $ " *** Circular dependency detected in" <+> (show $ source lib) <+> "***"
   | otherwise = let (resolved', resolvedMap', unresolvedMap') = do 
                       let key = fromJust isource
                           lib' = fromJust (Map.lookup key table)
