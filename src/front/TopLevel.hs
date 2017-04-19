@@ -254,7 +254,7 @@ compileProgram prog sourcePath options =
 
            localLibs = concatMap (\str -> "-L " ++ str ++ " ") libFolders
            localHeaderIncludes = concatMap (\str -> "-I " ++ str ++ " ") libFolders
-           links  = concatMap (\p -> "-lenc" ++ ((show . moduleName . moduledecl) p) ++ " ") (reverse libImports)
+           links  = concatMap (\p -> "-lenc" ++ ((show . moduleName . moduledecl) p) ++ " ") (libImports)
 
            cc    = "clang"
            customFlags = case find isCustomFlags options of
