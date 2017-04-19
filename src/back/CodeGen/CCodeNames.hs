@@ -167,8 +167,7 @@ encoreName kind name =
 
 qualifyRefType :: Ty.Type -> String
 qualifyRefType ty
-  | isRefAtomType ty = show (getRefNamePrefix ty)  ++ --sourceToString (Ty.getRefSourceFile ty) ++ -- ++ --
-                       "_" ++ Ty.getId ty
+  | isRefAtomType ty = show (getRefNamePrefix ty)  ++ "_" ++ Ty.getId ty
   | otherwise = error "CCodeNames.hs: not a ref type: " ++ show ty
 
 fixPrimes name
@@ -270,9 +269,7 @@ fieldName name =
     Nam $ encoreName "field" (show name)
 
 qualifiedToString :: ID.QualifiedName -> String
-qualifiedToString ID.QName{ID.qnsource = Nothing, ID.qnlocal} = show qnlocal
-qualifiedToString ID.QName{ID.qnsource = Just s, ID.qnlocal} = show qnlocal
-  --sourceToString s ++ show qnlocal
+qualifiedToString ID.QName{ID.qnlocal} = show qnlocal
 
 sourceToString :: FilePath -> String
 sourceToString = map translateSep . filter (/='.') . dropEnc
@@ -322,15 +319,7 @@ functionWrapperNameOf' :: A.FunctionHeader -> CCode Name
 functionWrapperNameOf' f@A.Header{A.hnamePrefix, A.hname} =
   Nam $ encoreName "fun_wrapper" $
       qualifiedToString $
-      --ID.setSourceFile "" $
       ID.topLevelQName (ID.Name ((show hnamePrefix) ++ (show hname)))      
-
-functionAsValueWrapperNameOf :: A.Expr -> CCode Name
-functionAsValueWrapperNameOf (A.FunctionAsValue {A.qname}) =
-  Nam $ encoreName "fun_wrapper" (qualifiedToString qname)
-functionAsValueWrapperNameOf e =
-    error $ "CCodeNames.hs: Tried to get function wrapper from '" ++
-            show e ++ "'"
 
 closureStructName :: CCode Name
 closureStructName = Nam "closure"

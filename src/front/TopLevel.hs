@@ -49,7 +49,6 @@ import CodeGen.Preprocessor
 import CodeGen.Header
 import CCode.PrettyCCode
 import Identifiers
-import CodeGen.LibraryHeader(generateLibraryHeader)
 
 
 -- the following line of code resolves the standard path at compile time using Template Haskell
@@ -317,9 +316,9 @@ compileLibrary originalProg prog sourcePath options =
          headerFile = srcDir </> ("libenc" ++ ((show . moduleName . moduledecl) prog) ++ ".h")
          sharedFile = srcDir </> "shared.c"
          makefile   = srcDir </> "Makefile"  
-    
-     let header = generateLibraryHeader prog
+  
      let emitted = compileToC prog
+         header = getHeader emitted
          classes = processClassNames (getClasses emitted)
          shared = getShared emitted
          libImports = libraries prog

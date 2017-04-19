@@ -26,26 +26,7 @@ generateHeader p =
     Concat $
     HashDefine headerDef :
     HashDefine "_XOPEN_SOURCE 800" :
-    (Includes [
-      "pthread.h", -- Needed because of the use of locks in future code, remove if we choose to remove lock-based futures
-      "pony.h",
-      "pool.h",
-      "stdlib.h",
-      "closure.h",
-      "stream.h",
-      "array.h",
-      "tuple.h",
-      "range.h",
-      "future.h",
-      "task.h",
-      "option.h",
-      "party.h",
-      "string.h",
-      "stdio.h",
-      "stdarg.h",
-      "dtrace_enabled.h",
-      "dtrace_encore.h"
-     ]) :
+    (Includes includes) :
 
     (Includes libHeaders) :
     HashDefine "UNIT ((void*) -1)" :
@@ -55,40 +36,40 @@ generateHeader p =
 
     [commentSection "Embedded code"] ++
     map Embed embedded ++
-    --map Embed (concatMap A.allEmbedded libs) ++
 
     [commentSection "Class type decls"] ++
-    classTypeDecls classes ++
+    classTypeDecls ++
 
     [commentSection "Trait type decls"] ++
-    traitTypeDecls traits ++
+    traitTypeDecls ++
 
     [commentSection "Passive class types"] ++
-    passiveTypes classes ++
+    passiveTypes ++
 
     [commentSection "Runtime types"] ++
-    runtimeTypeDecls classes traits ++
+    runtimeTypeDecls ++
 
     [commentSection "Message IDs"] ++
-    [messageEnums classes] ++
-    --map messageEnums (filter (not . null) libClassList) ++
+    if null classes
+    then [commentSection "No classes"]
+    else [messageEnums] ++
+
 
     [commentSection "Message types"] ++
-    ponyMsgTTypedefs classes ++
-    ponyMsgTImpls classes ++
+    ponyMsgTTypedefs ++
+    ponyMsgTImpls ++
 
     [commentSection "Global functions"] ++
-    globalFunctions functions ++
+    globalFunctions ++
 
     [commentSection "Class IDs"] ++
-    [classEnums classes] ++
-    --map classEnums (filter emptyClassList libClassList) ++
+    [classEnums] ++
 
     [commentSection "Trace functions"] ++
-    traceFnDecls classes ++
+    traceFnDecls ++
 
     [commentSection "Runtime type init functions"] ++
-    runtimeTypeFnDecls classes ++
+    runtimeTypeFnDecls ++
 
     [commentSection "Methods"] ++
     concatMap methodFwds classes ++
@@ -101,7 +82,7 @@ generateHeader p =
     [externMainRtti] ++
 
     [commentSection "Trait types"] ++
-    traitTypes traits
+    traitTypes
    where
      externMainRtti = DeclTL (Typ "extern pony_type_t", Var "_enc__active_Main_type")
 
@@ -121,22 +102,46 @@ generateHeader p =
      libs = A.libraries p
      libHeaders = map (\p -> "libenc" ++ ((show . A.moduleName . A.moduledecl) p) ++ ".h") libs 
 
-     headerDef = "ENCORE_" ++ ((map toUpper . show . A.moduleName . A.moduledecl) p) ++ "_H" 
-     --"libenc" ++ sourceName ++ ".h"
-
-     --libClassList = map A.classes $ libs
-     --libClasses = concatMap A.classes libs
-     --libFunctions = concatMap A.functions libs
-
-     --allClasses = classes ++ libClasses
-     --allFunctions = functions ++ libFunctions
-
-
-     emptyClassList :: [A.ClassDecl] -> Bool
-     emptyClassList classes = (not $ null classes)
-
-     ponyMsgTTypedefs :: [A.ClassDecl] -> [CCode Toplevel]
-     ponyMsgTTypedefs classes = map ponyMsgTTypedefClass classes
+     headerDef = if A.precompiled p 
+                 then "ENCORE_LIB_" ++ ((map toUpper . show . A.moduleName . A.moduledecl) p) ++ "_H" 
+                 else "ENCORE_" ++ ((map toUpper . show . A.moduleName . A.moduledecl) p) ++ "_H" 
+     
+     includes = if A.precompiled p
+                then
+                  [
+                    "pool.h",
+                    "array.h",
+                    "range.h",
+                    "option.h",
+                    "stdio.h",
+                    "stdarg.h",
+                    "dtrace_encore.h"
+                  ]
+                else
+                  [
+                    "pthread.h", -- Needed because of the use of locks in future code, remove if we choose to remove lock-based futures
+                    "pony.h",
+                    "pool.h",
+                    "stdlib.h",
+                    "closure.h",
+                    "stream.h",
+                    "array.h",
+                    "tuple.h",
+                    "range.h",
+                    "future.h",
+                    "task.h",
+                    "option.h",
+                    "party.h",
+                    "string.h",
+                    "stdio.h",
+                    "stdarg.h",
+                    "dtrace_enabled.h",
+                    "dtrace_encore.h"
+                  ]
+    
+  
+     ponyMsgTTypedefs :: [CCode Toplevel]
+     ponyMsgTTypedefs = map ponyMsgTTypedefClass classes
             where
                 ponyMsgTTypedefClass A.Class{A.cname, A.cmethods} =
                     Concat $ concatMap ponyMsgTTypedef cmethods
@@ -145,8 +150,8 @@ generateHeader p =
                             [Typedef (Struct $ futMsgTypeName cname (A.methodName mdecl)) (futMsgTypeName cname (A.methodName mdecl)),
                              Typedef (Struct $ oneWayMsgTypeName cname (A.methodName mdecl)) (oneWayMsgTypeName cname (A.methodName mdecl))]
 
-     ponyMsgTImpls :: [A.ClassDecl] -> [CCode Toplevel]
-     ponyMsgTImpls classes = map ponyMsgTImplsClass classes
+     ponyMsgTImpls :: [CCode Toplevel]
+     ponyMsgTImpls = map ponyMsgTImplsClass classes
               where
                 ponyMsgTImplsClass A.Class{A.cname, A.cmethods} =
                     Concat $ map ponyMsgTImpl cmethods
@@ -179,42 +184,45 @@ generateHeader p =
                           map (\name -> (Annotated (show name) (Var (show name))))
                             $ map typeVarRefName (A.methodTypeParams mdecl)
 
-     globalFunctions functions =
+     globalFunctions =
        [globalFunctionDecl f | f <- functions] ++
        [functionWrapperDecl f | f <- functions] ++
        [globalFunctionClosureDecl f | f <- functions]
 
-     messageEnums classes =
+     messageEnums =
                 let
                     meta = concatMap (\cdecl -> zip (repeat $ A.cname cdecl) (map A.methodName (A.cmethods cdecl))) classes
                     methodMsgNames = map (show . (uncurry futMsgId)) meta
                     oneWayMsgNames = map (show . (uncurry oneWayMsgId)) meta
                     allNames = methodMsgNames ++ oneWayMsgNames
+                    safeTail xs
+                      | null xs   = []
+                      | otherwise = tail xs
                 in
-                       Enum $ (Nam  $ (head allNames) ++ "= 1024") : map Nam (tail allNames)
+                       Enum $ (Nam  $ (head allNames) ++ "= 1024") : map Nam (safeTail allNames)
       
-     classEnums classes =
+     classEnums =
        let
         classIds = map (refTypeId . A.getType) classes
        in
         Enum classIds
 
-     traceFnDecls classes = map traceFnDecl classes
+     traceFnDecls = map traceFnDecl classes
          where
            traceFnDecl A.Class{A.cname} =
                FunctionDecl void (classTraceFnName cname) [Ptr encoreCtxT,Ptr void]
 
-     runtimeTypeFnDecls classes = map runtimeTypeFnDecl classes
+     runtimeTypeFnDecls = map runtimeTypeFnDecl classes
          where
            runtimeTypeFnDecl A.Class{A.cname} =
                FunctionDecl void (runtimeTypeInitFnName cname) [Ptr . AsType $ classTypeName cname, Embed "..."]
 
-     classTypeDecls classes = map classTypeDecl classes
+     classTypeDecls = map classTypeDecl classes
                  where
                    classTypeDecl A.Class{A.cname} =
                        Typedef (Struct $ classTypeName cname) (classTypeName cname)
 
-     passiveTypes classes = map passiveType $ filter (A.isPassive) classes
+     passiveTypes = map passiveType $ filter (A.isPassive) classes
                  where
                    passiveType A.Class{A.cname, A.cfields} =
                        let typeParams = Ty.getTypeParameters cname in
@@ -225,12 +233,12 @@ generateHeader p =
                                    (map (translate . A.ftype) cfields)
                                    (map (AsLval . fieldName . A.fname) cfields))
 
-     traitTypeDecls traits = map traitTypeDecl traits
+     traitTypeDecls = map traitTypeDecl traits
        where
          traitTypeDecl A.Trait{A.tname} =
            let ty = refTypeName tname in Typedef (Struct $ ty) ty
 
-     traitTypes traits = map traitType traits
+     traitTypes = map traitType traits
        where
          traitType A.Trait{A.tname} =
            let
@@ -239,7 +247,7 @@ generateHeader p =
            in
              StructDecl (AsType $ refTypeName tname) [self]
 
-     runtimeTypeDecls classes traits = map typeDecl classes ++ map typeDecl traits
+     runtimeTypeDecls = map typeDecl classes ++ map typeDecl traits
        where
          typeDecl ref =
            let

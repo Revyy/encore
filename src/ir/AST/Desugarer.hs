@@ -43,7 +43,7 @@ desugarProgram p@(Program{traits, classes, functions}) =
                             ,hname=Name "await"
                             ,htype=unitType
                             ,hparams=[awaitParam]
-                            ,hnamePrefix = namePrefix} --NOTE: Maybe fix?
+                            ,hnamePrefix = namePrefix}
         awaitParam = Param{pmeta, pmut=Val, pname=Name "f", ptype=futureType $ typeVar "_t"}
         suspend = Method{mmeta
                         ,mimplicit = True

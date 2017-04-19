@@ -103,10 +103,10 @@ findAndImportModules importDirs preludePaths sourceDir sourceName
     
     sourcePath = sourceDir </> sourceName
 
-    namePrefix = Name $ sourceToString $ shortenPrelude preludePaths $ replaceExtension sourcePath ".enc"
-    --namePrefix = if moduledecl == NoModule
-    --             then Name ""
-    --             else modname moduledecl
+    --namePrefix = Name $ sourceToString $ shortenPrelude preludePaths $ replaceExtension sourcePath ".enc"
+    namePrefix = if moduledecl == NoModule
+                 then Name ""
+                 else modname moduledecl
 
     setImportSource source i = i{isource = Just source}
     setClassSource source c@Class{cname} =
@@ -190,9 +190,9 @@ compressProgramTable mainProg table =
       prog      = compressProgramTable' mainProg regular
       resolved = resolveDeps table prog Map.empty Map.empty
   in 
-      prog{libraries=resolved} --addLibraries prog libs
+      prog{libraries=resolved}
 
-
+--NOTE: Not used at the moment.
 addLibraries :: Program -> ProgramTable -> Program
 addLibraries source libs = foldl joinTwo source libs
   where

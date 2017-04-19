@@ -44,7 +44,7 @@ methodImpls cdecl table = concatMap methodImpl
 -- "CodeGen.Header"
 translateActiveClass prog cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) table =
     Program $ Concat $
-      (LocalInclude localInclude) :
+      (LocalInclude $ localInclude prog) :
       [traitMethodSelectorIf table cdecl] ++
       [typeStructDecl cdecl] ++
       [runtimeTypeInitFunDecl cdecl] ++
@@ -53,13 +53,15 @@ translateActiveClass prog cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) table 
       methodImpls cdecl table cmethods ++
       [dispatchFunDecl cdecl] ++
       [runtimeTypeDecl cname]
-  where
-    localInclude = if A.precompiled prog
-                   then libHeaderName 
-                   else nonLibHeaderName
+
+
+
+localInclude prog = if A.precompiled prog
+                    then libHeaderName prog
+                    else nonLibHeaderName prog
       
-    nonLibHeaderName = ("enc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
-    libHeaderName = ("libenc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
+nonLibHeaderName prog = ("enc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
+libHeaderName prog = ("libenc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
 
 typeStructDecl :: A.ClassDecl -> CCode Toplevel
 typeStructDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =
@@ -245,7 +247,7 @@ constructorImpl act cname =
 
 translateSharedClass prog cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) table =
   Program $ Concat $
-    (LocalInclude localInclude) :
+    (LocalInclude $ localInclude prog) :
     [traitMethodSelectorIf table cdecl] ++
     [typeStructDecl cdecl] ++
     [runtimeTypeInitFunDecl cdecl] ++
@@ -254,13 +256,6 @@ translateSharedClass prog cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) table 
     methodImpls cdecl table cmethods ++
     [dispatchFunDecl cdecl] ++
     [runtimeTypeDecl cname]
-  where
-    localInclude = if A.precompiled prog
-                   then libHeaderName 
-                   else nonLibHeaderName
-      
-    nonLibHeaderName = ("enc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
-    libHeaderName = ("libenc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
 
 -- | Translates a passive class into its C representation. Note
 -- that there are additional declarations (including the data
@@ -268,7 +263,7 @@ translateSharedClass prog cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) table 
 -- "CodeGen.Header"
 translatePassiveClass prog cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) table =
   Program $ Concat $
-    (LocalInclude localInclude) :
+    (LocalInclude $ localInclude prog) :
     [traitMethodSelectorIf table cdecl] ++
     [runtimeTypeInitFunDecl cdecl] ++
     [tracefunDecl cdecl] ++
@@ -277,13 +272,6 @@ translatePassiveClass prog cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) table
     -- [dispatchfunDecl] ++
     [runtimePassiveTypeDecl cname]
   where
-    localInclude = if A.precompiled prog
-                   then libHeaderName 
-                   else nonLibHeaderName
-      
-    nonLibHeaderName = ("enc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
-    libHeaderName = ("libenc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
-
     dispatchfunDecl =
       Function (Static void) (classDispatchName cname)
                ([(Ptr (Ptr encoreCtxT), encoreCtxVar),
@@ -330,8 +318,6 @@ traitMethodSelector table A.Class{A.cname, A.ccomposition} =
            else
              []
 
---If (StatAsExpr ncond tcond) (Statement exportThn) (Statement exportEls)])
-
 traitMethodSelectorIf :: ProgramTable -> A.ClassDecl -> CCode Toplevel
 traitMethodSelectorIf table A.Class{A.cname, A.ccomposition} =
   let
@@ -366,55 +352,6 @@ traitMethodSelectorIf table A.Class{A.cname, A.ccomposition} =
             caseStmts   = map (Return . methodImplName cname) methodNames
         in zip caseNames caseStmts ++
            if Ty.isActiveSingleType tname then
-             let
-                 futCaseNames = map (futMsgId tname) methodNames
-                 futCaseStmts =
-                   map (Return . callMethodFutureName cname) methodNames
-                 oneWayCaseNames = map (oneWayMsgId tname) methodNames
-                 oneWayCaseStmts =
-                   map (Return . methodImplOneWayName cname) methodNames
-             in
-               zip futCaseNames futCaseStmts ++
-               zip oneWayCaseNames oneWayCaseStmts
-           else
-             []
-
---If (StatAsExpr ncond tcond) (Statement exportThn) (Statement exportEls)])
-
-traitMethodSelectorIf :: ProgramTable -> A.ClassDecl -> CCode Toplevel
-traitMethodSelectorIf table A.Class{A.cname, A.ccomposition} =
-  let
-    retType = Static (Ptr void)
-    fname = traitMethodSelectorName
-    args = [(Ptr $ Typ "char", Var "id")]
-
-    
-    traitTypes = A.typesFromTraitComposition ccomposition
-    traitMethods = map (`lookupMethods` table) traitTypes
-    --cases = (name, body):rest
-    cases = concat $ zipWith (traitCase cname) traitTypes traitMethods
-
-    eq = BinOp (Nam "==")
-    expressions = map (\(name, body) -> (Call (Nam "strcmp") [AsExpr $ Var "id", String $ show name] `eq` Int 0, body)) cases
-
-
-    err = String "error, got invalid id: %s"
-    defaultCase = Statement $ Call (Nam "printf") [err, AsExpr $ Var "id"]
-
-    ifchain = IfChain expressions defaultCase
-    body = Seq [ ifchain, Return Null ]
-  in
-    Function retType fname args body
-  where
-    traitCase :: Ty.Type -> Ty.Type -> [A.FunctionHeader] ->
-                 [(CCode Name, CCode Stat)]
-    traitCase cname tname tmethods =
-        let
-            methodNames = map A.hname tmethods
-            caseNames   = map (msgId tname) methodNames
-            caseStmts   = map (Return . methodImplName cname) methodNames
-        in zip caseNames caseStmts ++
-           if Ty.isActiveRefType tname then
              let
                  futCaseNames = map (futMsgId tname) methodNames
                  futCaseStmts =
