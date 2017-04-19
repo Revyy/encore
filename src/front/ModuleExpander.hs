@@ -94,6 +94,7 @@ findAndImportModules importDirs preludePaths sourceDir sourceName
             ,functions = functions'
             }
       newTable = Map.insert sourcePath p' table
+  --mapM (\p@Program{source} -> (print . show) source) (Map.elems newTable)
   foldM (importModule importDirs preludePaths) newTable sources
   where
     moduleNamespace = if moduledecl == NoModule
@@ -184,13 +185,12 @@ compressProgramTable' source modules = foldl joinTwo source modules
 
 
 compressProgramTable :: Program -> ProgramTable -> Program
-compressProgramTable source table = 
-  let libs = Map.filter (precompiled) table
-      regular   = Map.filter (not . precompiled) table
-      prog      = compressProgramTable' source regular
-      resolved = resolveDeps libs prog Map.empty Map.empty
+compressProgramTable mainProg table = 
+  let regular   = Map.filter (not . precompiled) table
+      prog      = compressProgramTable' mainProg regular
+      resolved = resolveDeps table prog Map.empty Map.empty
   in 
-      addLibraries prog libs--prog{libraries=resolved}
+      prog{libraries=resolved} --addLibraries prog libs
 
 
 addLibraries :: Program -> ProgramTable -> Program
@@ -204,27 +204,32 @@ addLibraries source libs = foldl joinTwo source libs
 resolveDeps :: ProgramTable -> Program -> ProgramTable -> ProgramTable -> [Program]
 resolveDeps libs _ _ _ | null libs = []
 resolveDeps table lib@Program{source, imports} resolvedMap unresolvedMap = do
-    let imports' = filter (\i@Import{isource} -> Map.member (fromJust isource) table) imports
-        updUnresolved = Map.insert source lib unresolvedMap
-        (resolved, _, _) = foldl (resolve table) ([], resolvedMap, updUnresolved) imports'
+    let table' = if not $ (moduledecl lib) == NoModule 
+                 then Map.insert source lib table
+                 else table
+    let (resolved, _, _) = foldl (resolve table') ([], resolvedMap, unresolvedMap) imports
     resolved
 
 
 resolveDeps' :: ProgramTable -> Program -> [Program] -> ProgramTable -> ProgramTable -> ([Program], ProgramTable, ProgramTable)
 resolveDeps' table lib@Program{source, imports} resolved resolvedMap unresolvedMap = do
-    let imports' = filter (\i@Import{isource} -> Map.member (fromJust isource) table) imports
-        updUnresolved = Map.insert source lib unresolvedMap
-        (resolved', resolvedMap', unresolvedMap') = foldl (resolve table) (resolved, resolvedMap, updUnresolved) imports'
+    let updUnresolved = Map.insert source lib unresolvedMap
+        (resolved', resolvedMap', unresolvedMap') = foldl (resolve table) (resolved, resolvedMap, updUnresolved) imports
     let finalResolvedMap = (Map.insert source lib resolvedMap')
         finalUnResolvedMap = (Map.delete source unresolvedMap')
-        finalResolved = lib:resolved'
+        finalResolved = if precompiled lib then lib:resolved' else resolved'
     (finalResolved, finalResolvedMap, finalUnResolvedMap) 
+
 
 resolve :: ProgramTable -> ([Program], ProgramTable, ProgramTable) -> ImportDecl -> ([Program], ProgramTable, ProgramTable)
 resolve table (resolved, resolvedMap, unresolvedMap) i@Import{isource}
   | Map.member (fromJust isource) resolvedMap = (resolved, resolvedMap, unresolvedMap)
-  | Map.notMember (fromJust isource) resolvedMap && Map.member (fromJust isource) unresolvedMap = 
-        error $ " *** Circular dependency detected " <+> "***"
+  | Map.notMember (fromJust isource) resolvedMap && Map.member (fromJust isource) unresolvedMap = do
+        let key = fromJust isource
+            lib =  fromJust (Map.lookup key table)
+        if not $ precompiled lib 
+        then (resolved, resolvedMap, unresolvedMap) 
+        else error $ " *** Circular dependency detected " <+> "***"
   | otherwise = let (resolved', resolvedMap', unresolvedMap') = do 
                       let key = fromJust isource
                           lib' = fromJust (Map.lookup key table)
