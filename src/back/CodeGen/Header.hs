@@ -50,9 +50,9 @@ generateHeader p =
     runtimeTypeDecls ++
 
     [commentSection "Message IDs"] ++
-    if null classes
-    then [commentSection "No classes"]
-    else [messageEnums] ++
+    (if null classes
+    then [commentSection "No classes"] 
+    else [messageEnums]) ++
 
 
     [commentSection "Message types"] ++
@@ -63,7 +63,9 @@ generateHeader p =
     globalFunctions ++
 
     [commentSection "Class IDs"] ++
-    [classEnums] ++
+    (if null classes
+     then [commentSection "No class id's"] 
+     else [classEnums]) ++
 
     [commentSection "Trace functions"] ++
     traceFnDecls ++
@@ -106,19 +108,7 @@ generateHeader p =
                  then "ENCORE_LIB_" ++ ((map toUpper . show . A.moduleName . A.moduledecl) p) ++ "_H" 
                  else "ENCORE_" ++ ((map toUpper . show . A.moduleName . A.moduledecl) p) ++ "_H" 
      
-     includes = if A.precompiled p
-                then
-                  [
-                    "pool.h",
-                    "array.h",
-                    "range.h",
-                    "option.h",
-                    "stdio.h",
-                    "stdarg.h",
-                    "dtrace_encore.h"
-                  ]
-                else
-                  [
+     includes = [
                     "pthread.h", -- Needed because of the use of locks in future code, remove if we choose to remove lock-based futures
                     "pony.h",
                     "pool.h",
@@ -137,7 +127,7 @@ generateHeader p =
                     "stdarg.h",
                     "dtrace_enabled.h",
                     "dtrace_encore.h"
-                  ]
+                ]
     
   
      ponyMsgTTypedefs :: [CCode Toplevel]

@@ -324,6 +324,8 @@ compileLibrary originalProg prog sourcePath options =
          libImports = libraries prog
     
      let encoreNames = map (\(name, _) -> changeFileExt name "encore.o") classes
+         encoreClassNames = map (\(name, _) -> changeFileExt name "encore.c") classes
+         sharedFile = "shared.c"
 
          libFolders = let getBaseDir p = ((show . takeDirectory . source) p) 
                           getSrcDir p = ((show . moduleName . moduledecl) p) ++ "_lib"
@@ -340,8 +342,11 @@ compileLibrary originalProg prog sourcePath options =
          defines = getDefines options
          incs  = "-I" <+> incPath
          cmd   = flags <+> incs
-         compileCmd = "cd" <+> srcDir <+> "&& make module"
-    
+
+         cdCmd = "cd" <+> srcDir <+> "&&"
+         libCmd = "&& ar -rcs" <+> libName <+> "*.o"
+         compileCmd = cdCmd <+> cc <+> "-c" <+> cmd <+> localHeaderIncludes <+> unwords encoreClassNames <+> sharedFile <+> libCmd
+         
      --Write files
      createDirectoryIfMissing True srcDir
      mapM_ (writeClass srcDir) classes
