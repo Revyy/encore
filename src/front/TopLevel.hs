@@ -26,7 +26,7 @@ import SystemUtils
 import Language.Haskell.TH -- for Template Haskell hackery
 import Text.Printf
 import qualified Text.PrettyPrint.Boxes as Box
-import System.FilePath (splitPath, joinPath, dropExtension, takeDirectory)
+import System.FilePath (splitPath, joinPath, dropExtension, takeDirectory, takeFileName)
 import Text.Megaparsec.Error(errorPos, parseErrorTextPretty)
 import AST.Meta(showSourcePos)
 
@@ -312,7 +312,7 @@ compileLibrary originalProg prog sourcePath options =
          incPath = encorecDir <> "inc/"
          sourceName = dropExtension sourcePath
          srcDir = sourceName ++ "_lib"
-         libName = "libenc" ++ sourceName ++ ".a"
+         libName = "libenc" ++ (takeFileName sourceName) ++ ".a"
          headerFile = srcDir </> ("libenc" ++ ((show . moduleName . moduledecl) prog) ++ ".h")
          sharedFile = srcDir </> "shared.c"
          makefile   = srcDir </> "Makefile"  
@@ -325,7 +325,7 @@ compileLibrary originalProg prog sourcePath options =
     
      let encoreNames = map (\(name, _) -> changeFileExt name "encore.o") classes
          encoreClassNames = map (\(name, _) -> changeFileExt name "encore.c") classes
-         sharedFile = "shared.c"
+         sharedFileName = "shared.c"
 
          libFolders = let getBaseDir p = ((show . takeDirectory . source) p) 
                           getSrcDir p = ((show . moduleName . moduledecl) p) ++ "_lib"
@@ -345,7 +345,7 @@ compileLibrary originalProg prog sourcePath options =
 
          cdCmd = "cd" <+> srcDir <+> "&&"
          libCmd = "&& ar -rcs" <+> libName <+> "*.o"
-         compileCmd = cdCmd <+> cc <+> "-c" <+> cmd <+> localHeaderIncludes <+> unwords encoreClassNames <+> sharedFile <+> libCmd
+         compileCmd = cdCmd <+> cc <+> "-c" <+> cmd <+> localHeaderIncludes <+> unwords encoreClassNames <+> sharedFileName <+> libCmd
          
      --Write files
      createDirectoryIfMissing True srcDir
@@ -444,11 +444,9 @@ main =
        let (mainDir, mainName) = dirAndName sourcePath
            mainSource = mainDir </> mainName
 
-       source <- case Map.lookup mainSource optimizedTable of
-                        Just s -> return s
-                        Nothing -> abort $ show "Error" -- Show a better error..
-        
-       let rest = Map.delete mainSource optimizedTable
+       --Separate the main program from the modules before compressing.
+       let source = fromJust $ Map.lookup mainSource optimizedTable 
+           rest = Map.delete mainSource optimizedTable
 
 
        let fullAst = setProgramSource mainSource $
@@ -462,8 +460,8 @@ main =
            Nothing    -> return ()
 
        exeName <- if CreateLibrary `elem` options 
-                  then compileLibrary ast fullAst' sourceName options
-                  else compileProgram fullAst' sourceName options
+                  then compileLibrary ast fullAst' sourcePath options
+                  else compileProgram fullAst' sourcePath options
 
        when (Run `elem` options && not (CreateLibrary `elem` options))
            (do verbose options $ "== Running '" ++ exeName ++ "' =="
