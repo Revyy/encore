@@ -360,6 +360,10 @@ compileLibrary originalProg prog sourcePath options =
        ExitSuccess -> return ()
        ExitFailure n ->
             abort $ " *** Compilation failed with exit code" <+> show n <+> "***"
+     
+     unless (KeepCFiles `elem` options)
+                  (do runCommand $ cdCmd <+> "rm -rf" <+> "*.o" <+> "*.c" <+> "Makefile"
+                      return ())
 
      return srcDir
   where
