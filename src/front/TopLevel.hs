@@ -236,7 +236,7 @@ compileProgram prog sourcePath options =
            header = getHeader emitted
            shared = getShared emitted
            libImports = libraries prog
-       --mapM (putStrLn . show . source)  libs
+
        mapM_ (writeClass srcDir) classes
        let encoreNames =
              map (\(name, _) -> changeFileExt name "encore.c") classes

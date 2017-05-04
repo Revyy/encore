@@ -2,7 +2,6 @@ module ModuleExpander(
                       ProgramTable
                      ,buildProgramTable
                      ,compressProgramTable
-                     ,compressProgramTable'
                      ,dirAndName
                      ) where
 
@@ -84,9 +83,7 @@ findAndImportModules importDirs preludePaths sourceDir sourceName
       traits'    = map (setTraitSource sourcePath) traits
       typedefs'  = map (setTypedefSource sourcePath) typedefs
       functions' = map (setFunctionSource sourcePath) functions
-      --precompiled' = (moduleLibrary moduledecl)
       p' = p{source    = sourcePath
-            --,precompiled = precompiled'
             ,imports   = imports'
             ,classes   = classes'
             ,traits    = traits'
@@ -94,7 +91,6 @@ findAndImportModules importDirs preludePaths sourceDir sourceName
             ,functions = functions'
             }
       newTable = Map.insert sourcePath p' table
-  --mapM (\p@Program{source} -> (print . show) source) (Map.elems newTable)
   foldM (importModule importDirs preludePaths) newTable sources
   where
     moduleNamespace = if moduledecl == NoModule
