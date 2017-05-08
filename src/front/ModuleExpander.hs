@@ -99,10 +99,10 @@ findAndImportModules importDirs preludePaths sourceDir sourceName
     
     sourcePath = sourceDir </> sourceName
 
-    --namePrefix = Name $ sourceToString $ shortenPrelude preludePaths $ replaceExtension sourcePath ".enc"
-    namePrefix = if moduledecl == NoModule
-                 then Name ""
-                 else modname moduledecl
+    namePrefix = Name $ sourceToString $ shortenPrelude preludePaths $ replaceExtension sourcePath ".enc"
+    --namePrefix = if moduledecl == NoModule
+    --             then Name ""
+    --             else modname moduledecl
 
     setImportSource source i = i{isource = Just source}
     setClassSource source c@Class{cname} =

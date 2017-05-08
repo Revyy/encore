@@ -476,7 +476,7 @@ main =
 
     where
       reportPrecompileImportError s = abort $ 
-          show ("Error: An imported module is not precompiled. Source: " ++ (show s))
+          "Error: An imported module is not precompiled. Source: " ++  s
 
       precheckProgramTable :: ProgramTable -> IO ProgramTable
       precheckProgramTable table = do
