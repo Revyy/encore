@@ -42,8 +42,14 @@ class Show a => HasMeta a where
 
     setMeta :: a -> Meta a -> a
 
-    getPos :: a -> SourcePos
+    getPos :: a -> Position
     getPos = Meta.getPos . getMeta
+
+    setEndPos :: SourcePos -> a -> a
+    setEndPos end x =
+      let oldMeta = getMeta x
+          newMeta = Meta.setEndPos end oldMeta
+      in setMeta x newMeta
 
     getType :: a -> Type
     getType = Meta.getType . getMeta
@@ -86,6 +92,14 @@ data EmbedTL = EmbedTL {
       etlheader :: String,
       etlbody   :: String
     } deriving (Show)
+
+instance HasMeta EmbedTL where
+    getMeta = etlmeta
+
+    setMeta etl etlmeta = etl{etlmeta}
+
+    setType ty i =
+        error "AST.hs: Cannot set the type of a EmbedTL"
 
 data ModuleDecl = Module {
       modmeta :: Meta ModuleDecl,
@@ -436,6 +450,9 @@ instance HasMeta FieldDecl where
 
 isValField :: FieldDecl -> Bool
 isValField = (== Val) . fmut
+
+isVarField :: FieldDecl -> Bool
+isVarField = (== Var) . fmut
 
 data ParamDecl = Param {
   pmeta :: Meta ParamDecl,

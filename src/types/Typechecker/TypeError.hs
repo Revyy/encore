@@ -21,7 +21,6 @@ module Typechecker.TypeError (Backtrace
                              ) where
 
 import Text.PrettyPrint
-import Text.Megaparsec(SourcePos)
 import Data.Maybe
 import Data.List
 import Data.Char
@@ -31,7 +30,7 @@ import Identifiers
 import Types
 import AST.AST hiding (showWithKind)
 import AST.PrettyPrinter
-import AST.Meta(showSourcePos)
+import AST.Meta(Position)
 
 data BacktraceNode = BTFunction Name Type
                    | BTTrait Type
@@ -75,7 +74,7 @@ instance Show BacktraceNode where
   show (BTImport ns) =
      concat ["In import of module '", show ns, "'"]
 
-type Backtrace = [(SourcePos, BacktraceNode)]
+type Backtrace = [(Position, BacktraceNode)]
 emptyBT :: Backtrace
 emptyBT = []
 
@@ -116,7 +115,6 @@ validUseOfBreak :: Backtrace -> Bool
 validUseOfBreak [] = False
 validUseOfBreak ((_, BTExpr l@For{}):_) = True
 validUseOfBreak ((_, BTExpr l@While{}):_) = True
-validUseOfBreak ((_, BTExpr l@DoWhile{}):_) = True
 validUseOfBreak ((_, BTExpr l@Repeat{}):_) = True
 validUseOfBreak ((_, BTExpr c@Closure{}):_) = False
 validUseOfBreak (_:bt) = validUseOfBreak bt
@@ -187,7 +185,7 @@ instance Show TCError where
         show err ++ "\n"
     show (TCError err bt@((pos, _):_)) =
         " *** Error during typechecking *** \n" ++
-        showSourcePos pos ++ "\n" ++
+        show pos ++ "\n" ++
         show err ++ "\n" ++
         concatMap showBT (reduceBT bt)
         where
@@ -274,6 +272,7 @@ data Error =
   | TypeVariableAndVariableCommonNameError [Name]
   | UnionMethodAmbiguityError Type Name
   | MalformedUnionTypeError Type Type
+  | RequiredFieldMutabilityError Type FieldDecl
   | ProvidingTraitFootprintError Type Type Name [FieldDecl]
   | TypeArgumentInferenceError Expr Type
   | AmbiguousTypeError Type [Type]
@@ -291,7 +290,6 @@ data Error =
   | ImpureMatchMethodError Expr
   | IdComparisonNotSupportedError Type
   | IdComparisonTypeMismatchError Type Type
-  | ForwardArgumentError
   | ForwardInPassiveContext Type
   | ForwardInFunction
   | ForwardTypeError Type Type
@@ -307,7 +305,7 @@ data Error =
   | NonSafeInReadContextError Type Type
   | NonSafeInExtendedReadTraitError Type Name Type
   | ProvidingToReadTraitError Type Type Name
-  | SubordinateReturnError Name
+  | SubordinateReturnError Name Type
   | SubordinateArgumentError Expr
   | SubordinateFieldError Name
   | ThreadLocalFieldError Type
@@ -315,7 +313,7 @@ data Error =
   | ThreadLocalArgumentError Expr
   | PolymorphicArgumentSendError Expr Type
   | PolymorphicReturnError Name Type
-  | ThreadLocalReturnError Name
+  | ThreadLocalReturnError Name Type
   | MalformedConjunctionError Type Type Type
   | CannotUnpackError Type
   | CannotInferUnpackingError Type
@@ -601,8 +599,13 @@ instance Show Error where
         printf ("Null valued expression cannot have type '%s' " ++
                 "(must have reference type)") (show ty)
     show (TypeMismatchError actual expected) =
-        printf "Type '%s' does not match expected type '%s'"
-               (show actual) (show expected)
+        if isArrowType actual && isArrowType expected &&
+           actual `withModeOf` expected == expected
+        then printf ("Closure of type '%s' captures %s state and cannot " ++
+                     "be used as type '%s'")
+                     (show actual) (showModeOf actual) (show expected)
+        else printf "Type '%s' does not match expected type '%s'"
+                    (show actual) (show expected)
     show (TypeWithCapabilityMismatchError actual cap expected) =
         printf "Type '%s' with capability '%s' does not match expected type '%s'%s"
                (show actual) (show cap) (show expected) pointer
@@ -662,6 +665,9 @@ instance Show Error where
                      | otherwise = error msg
           msg = "TypeError.hs: " ++ show call ++
                 " is not a function or method call"
+    show (RequiredFieldMutabilityError requirer field) =
+        printf "Trait '%s' requires field '%s' to be mutable"
+               (getId requirer) (show field)
     show (ProvidingTraitFootprintError provider requirer mname fields) =
         printf ("Trait '%s' cannot provide method '%s' to %s.\n" ++
                 "'%s' can mutate fields that are marked immutable in '%s':\n%s")
@@ -712,7 +718,6 @@ instance Show Error where
         printf ("Returned type %s of forward should match with " ++
                "the result type of the containing method %s")
                (show retType) (show ty)
-    show (ForwardArgumentError) = "Forward currently operates on method call"
     show (ForwardInPassiveContext cname) =
         printf "Forward can not be used in passive class '%s'"
                (show cname)
@@ -764,10 +769,12 @@ instance Show Error where
     show (ProvidingToReadTraitError provider requirer mname) =
         printf "Non-read trait '%s' cannot provide method '%s' to read trait '%s'"
                (getId provider) (show mname) (getId requirer)
-    show (SubordinateReturnError name) =
-        printf ("Method '%s' returns a subordinate capability and cannot " ++
+    show (SubordinateReturnError name ty) =
+        printf ("Method '%s' returns a %s and cannot " ++
                 "be called from outside of its aggregate")
-               (show name)
+               (show name) (if isArrowType ty
+                            then "closure that captures subordinate state"
+                            else "subordinate capability")
     show (SubordinateArgumentError arg) =
         if isArrowType (getType arg)
         then printf ("Closure '%s' captures subordinate state " ++
@@ -796,10 +803,12 @@ instance Show Error where
         else printf ("Cannot pass actor local argument '%s' " ++
                      "to another active object")
                      (show (ppSugared arg))
-    show (ThreadLocalReturnError name) =
-        printf ("Method '%s' returns a local capability and cannot " ++
+    show (ThreadLocalReturnError name ty) =
+        printf ("Method '%s' returns a %s and cannot " ++
                 "be called by a different active object")
-               (show name)
+               (show name) (if isArrowType ty
+                            then "closure that captures local state"
+                            else "local capability")
     show (PolymorphicArgumentSendError arg ty) =
         printf ("Cannot pass value of '%s' between active objects. " ++
                 "Its type is polymorphic so it may not be safe to share.\n" ++
@@ -915,7 +924,7 @@ instance Show TCWarning where
         "Warning:\n" ++
         show w
     show (TCWarning ((pos, _):_) w) =
-        "Warning at " ++ showSourcePos pos ++ ":\n" ++
+        "Warning at " ++ show pos ++ ":\n" ++
         show w
 
 data Warning = StringDeprecatedWarning

@@ -1,6 +1,7 @@
 -- This file was automatically converted by encorec
 
 module Real
+import String
 
 read class Real
   val value : real

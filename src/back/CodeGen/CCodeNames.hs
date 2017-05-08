@@ -212,7 +212,7 @@ methodImplNameStr clazz mname =
 
 forwardingMethodImplNameStr :: Ty.Type -> ID.Name -> String
 forwardingMethodImplNameStr clazz mname =
-  encoreName "forwarding_method" $ qualifyRefType clazz ++ "_" ++ show mname
+  encoreName "method" $ qualifyRefType clazz ++ "_" ++ show mname ++ "_async"
 
 callMethodFutureNameStr :: Ty.Type -> ID.Name -> String
 callMethodFutureNameStr clazz mname =
@@ -400,9 +400,7 @@ oneWayMsgId cls mname =
 typeNamePrefix :: Ty.Type -> String
 typeNamePrefix ref
   | Ty.isTraitType ref = encoreName "trait" qname
-  | Ty.isRefAtomType ref = if Ty.isModeless ref
-                           then encoreName "passive" qname
-                           else encoreName (showModeOf ref) qname
+  | Ty.isRefAtomType ref = encoreName "class" qname
   | otherwise = error $ "type_name_prefix Type '" ++ show ref ++
                         "' isnt reference type!"
   where
@@ -446,6 +444,9 @@ futureGetActor = Nam "future_get_actor"
 
 futureChainActor :: CCode Name
 futureChainActor = Nam "future_chain_actor"
+
+futureChainActorForward :: CCode Name
+futureChainActorForward = Nam "future_chain_forward"
 
 actorSuspend :: CCode Name
 actorSuspend = Nam "actor_suspend"
