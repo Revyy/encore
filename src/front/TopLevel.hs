@@ -272,7 +272,7 @@ compileProgram prog sourcePath options =
                                 
            cmd   = pg <+> opt <+> flags <+> libs <+> incs <+> localHeaderIncludes <+> debug
            compileCmd = cc <+> cmd <+> oFlag <+> unwords classFiles <+>
-                        sharedFile <+> defines
+                        sharedFile <+> links <+> libs <+> libs <+> defines
 
        withFile headerFile WriteMode (output header)
        withFile sharedFile WriteMode (output shared)
@@ -282,7 +282,7 @@ compileProgram prog sourcePath options =
        when ((TypecheckOnly `notElem` options) || (Run `elem` options))
            (do files  <- getDirectoryContents "."
                let ofilesInc = unwords (filter (isSuffixOf ".o") files)
-               exitCode <- system $ compileCmd <+> ofilesInc <+> localLibs <+> links
+               exitCode <- system $ compileCmd <+> ofilesInc <+> localLibs
                case exitCode of
                  ExitSuccess -> return ()
                  ExitFailure n ->
