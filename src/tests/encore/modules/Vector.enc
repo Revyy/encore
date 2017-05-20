@@ -1,7 +1,6 @@
 -- This file was automatically converted by encorec
 
 module Vector
-import String
 local class Vector[t]
   var data : [t]
   def init() : unit

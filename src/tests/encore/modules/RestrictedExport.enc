@@ -1,7 +1,6 @@
 -- This file was automatically converted by encorec
 
 module RestrictedExport(foo)
-import String
 fun foo() : unit
   println("Foo")
 end

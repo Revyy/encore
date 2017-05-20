@@ -1,7 +1,6 @@
 -- This file was automatically converted by encorec
 
 module Utils
-import String
 fun id(x : String) : String
   x
 end

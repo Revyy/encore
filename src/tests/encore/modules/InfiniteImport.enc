@@ -1,6 +1,5 @@
 module InfiniteImport
 import InfiniteImport
-import String
 
 active class Main
   def main() : unit

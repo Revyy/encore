@@ -73,10 +73,10 @@ findAndImportModules importDirs preludePaths sourceDir sourceName
                                     ,traits
                                     ,typedefs
                                     ,functions} = do
-
-  let withStdlib = if moduledecl == NoModule 
+  let withStdlib = if not $ any (`isPrefixOf` sourceDir) preludePaths
                    then addStdLib sourcePath moduledecl imports
                    else imports
+
   sources <- mapM (findSource importDirs sourceDir) withStdlib
   let imports'   = zipWith setImportSource sources withStdlib
       classes'   = map (setClassSource sourcePath) classes
@@ -100,9 +100,6 @@ findAndImportModules importDirs preludePaths sourceDir sourceName
     sourcePath = sourceDir </> sourceName
 
     namePrefix = Name $ sourceToString $ shortenPrelude preludePaths $ replaceExtension sourcePath ".enc"
-    --namePrefix = if moduledecl == NoModule
-    --             then Name ""
-    --             else modname moduledecl
 
     setImportSource source i = i{isource = Just source}
     setClassSource source c@Class{cname} =
@@ -192,14 +189,6 @@ compressProgramTable mainProg table =
       resolved = resolveDeps table prog Map.empty Map.empty
   in 
       prog{libraries=resolved}
-
---NOTE: Not used at the moment.
-addLibraries :: Program -> ProgramTable -> Program
-addLibraries source libs = foldl joinTwo source libs
-  where
-    joinTwo :: Program -> Program -> Program
-    joinTwo p@Program{traits=traits, libraries=libraries}
-              p2@Program{traits=traits'} = p{libraries=libraries ++ [p2]}
 
 
 resolveDeps :: ProgramTable -> Program -> ProgramTable -> ProgramTable -> [Program]

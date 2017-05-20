@@ -1,5 +1,5 @@
 module QLib
-import String
+
 typedef X = QFoo
 
 read trait T

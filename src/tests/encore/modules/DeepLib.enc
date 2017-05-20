@@ -1,7 +1,6 @@
 -- This file was automatically converted by encorec
 
 module DeepLib
-import String
 read class Foo
   def name() : String
     "DeepFoo"
