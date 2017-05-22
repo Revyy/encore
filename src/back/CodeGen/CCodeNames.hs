@@ -19,6 +19,7 @@ import CCode.Main
 import Data.List
 import Data.Char
 import Data.String.Utils
+import Data.Maybe (fromMaybe)
 
 import qualified AST.AST as A
 
@@ -167,7 +168,8 @@ encoreName kind name =
 
 qualifyRefType :: Ty.Type -> String
 qualifyRefType ty
-  | isRefAtomType ty = show (getRefNamePrefix ty)  ++ "_" ++ Ty.getId ty
+  | isRefAtomType ty = sourceToString (Ty.getRefSourceFile ty) ++
+                        "_" ++ Ty.getId ty
   | otherwise = error "CCodeNames.hs: not a ref type: " ++ show ty
 
 fixPrimes name
@@ -269,7 +271,9 @@ fieldName name =
     Nam $ encoreName "field" (show name)
 
 qualifiedToString :: ID.QualifiedName -> String
-qualifiedToString ID.QName{ID.qnlocal} = show qnlocal
+qualifiedToString ID.QName{ID.qnsource = Nothing, ID.qnlocal} = show qnlocal
+qualifiedToString ID.QName{ID.qnsource = Just s, ID.qnlocal} =
+  sourceToString s ++ show qnlocal
 
 sourceToString :: FilePath -> String
 sourceToString = map translateSep . filter (/='.') . dropEnc
@@ -288,7 +292,7 @@ globalClosureName funname =
 functionClosureNameOf :: A.Function -> CCode Name
 functionClosureNameOf f =
     globalClosureName $ ID.setSourceFile (A.funsource f) $
-                        ID.topLevelQName (ID.Name ((show $ A.funNamePrefix f) ++ (show $ A.functionName f)))
+                        ID.topLevelQName $ ID.Name $ show $ A.functionName f
 
 globalFunctionName :: ID.QualifiedName -> CCode Name
 globalFunctionName funname =
@@ -301,25 +305,26 @@ localFunctionName funname =
 globalFunctionNameOf :: A.Function -> CCode Name
 globalFunctionNameOf f@A.Function{A.funsource} =
   globalFunctionName $ ID.setSourceFile funsource $
-                       ID.topLevelQName (ID.Name ((show $ A.funNamePrefix f) ++ (show $ A.functionName f)))
+                       ID.topLevelQName $ ID.Name $ show $ A.functionName f
 
 localFunctionNameOf :: A.Function -> CCode Name
 localFunctionNameOf f@A.Function{A.funsource} =
   localFunctionName $ ID.setSourceFile funsource $
-                      ID.topLevelQName (ID.Name ((show $ A.funNamePrefix f) ++ (show $ A.functionName f)))
+                      ID.topLevelQName $ ID.Name $ show $ A.functionName f
 
 functionWrapperNameOf :: A.Function -> CCode Name
 functionWrapperNameOf f@A.Function{A.funsource} =
   Nam $ encoreName "fun_wrapper" $
       qualifiedToString $
       ID.setSourceFile funsource $
-      ID.topLevelQName (ID.Name ((show $ A.funNamePrefix f) ++ (show $ A.functionName f)))
+      ID.topLevelQName $ ID.Name $ show $ A.functionName f
 
-functionAsValueWrapperNameOf :: A.FunctionHeader -> CCode Name
-functionAsValueWrapperNameOf f@A.Header{A.hnamePrefix, A.hname} =
+functionAsValueWrapperNameOf :: A.FunctionHeader -> ID.QualifiedName -> CCode Name
+functionAsValueWrapperNameOf f@A.Header{A.hname} ID.QName{ID.qnsource} =
   Nam $ encoreName "fun_wrapper" $
-      qualifiedToString $
-      ID.topLevelQName (ID.Name ((show hnamePrefix) ++ (show hname)))      
+      qualifiedToString $ 
+      ID.setSourceFile (fromMaybe "" qnsource) $
+      ID.topLevelQName $ ID.Name $ show hname      
 
 closureStructName :: CCode Name
 closureStructName = Nam "closure"

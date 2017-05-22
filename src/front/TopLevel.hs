@@ -213,16 +213,19 @@ processClassNames pairs =
         | otherwise = name:acc
   in zip disambiguated classes
 
+
+getLibFolders libImports = 
+  let getBaseDir p = ((show . takeDirectory . fullPath) p) 
+      getSrcDir p = ((show . moduleName . moduledecl) p) ++ "_lib"
+  in
+    (nub (map (\p -> (getBaseDir p </> getSrcDir p)) libImports))
+
 compileProgram prog sourcePath options =
     do encorecPath <- getExecutablePath
        let encorecDir = dirname encorecPath
            incPath = encorecDir <> "inc/"
            libPath = encorecDir <> "lib/"
-           dropExt src = let src' = changeFileExt src ""
-                         in if src == src'
-                            then src'
-                            else dropExt src'
-           sourceName = dropExt sourcePath
+           sourceName = dropExtension sourcePath
            execName = case find isOutput options of
                         Just (Output file) -> file
                         Nothing            -> sourceName
@@ -230,14 +233,13 @@ compileProgram prog sourcePath options =
        when (execName == sourcePath) $
             abort $ "Compilation would overwrite the source! Aborting.\n" ++
                     "You can specify the output file with -o [file]"
-       createDirectoryIfMissing True srcDir
+       
        let emitted = compileToC prog
            classes = processClassNames (getClasses emitted)
            header = getHeader emitted
            shared = getShared emitted
            libImports = libraries prog
 
-       mapM_ (writeClass srcDir) classes
        let encoreNames =
              map (\(name, _) -> changeFileExt name "encore.c") classes
            classFiles = map (srcDir </>) encoreNames
@@ -245,12 +247,8 @@ compileProgram prog sourcePath options =
            sharedFile = srcDir </> "shared.c"
            makefile   = srcDir </> "Makefile"
 
-           libFolders = let getBaseDir p = ((show . takeDirectory . source) p) 
-                            getSrcDir p = ((show . moduleName . moduledecl) p) ++ "_lib"
-                        in
-                          (nub (map (\p -> getBaseDir p </> getSrcDir p) libImports))
+           libFolders = getLibFolders libImports
            
-
            localLibs = concatMap (\str -> "-L " ++ str ++ " ") libFolders
            localHeaderIncludes = concatMap (\str -> "-I " ++ str ++ " ") libFolders
            links  = concatMap (\p -> "-lenc" ++ ((show . moduleName . moduledecl) p) ++ " ") (libImports)
@@ -273,7 +271,10 @@ compileProgram prog sourcePath options =
            cmd   = pg <+> opt <+> flags <+> libs <+> incs <+> localHeaderIncludes <+> debug
            compileCmd = cc <+> cmd <+> oFlag <+> unwords classFiles <+>
                         sharedFile <+> links <+> libs <+> libs <+> defines
-
+       
+       --Write files
+       createDirectoryIfMissing True srcDir
+       mapM_ (writeClass srcDir) classes
        withFile headerFile WriteMode (output header)
        withFile sharedFile WriteMode (output shared)
        withFile makefile   WriteMode (output $
@@ -306,16 +307,13 @@ compileProgram prog sourcePath options =
       getDefine NoGC = "NO_GC"
       getDefine _ = ""
 
-compileLibrary originalProg prog sourcePath options =
+compileLibrary prog sourcePath options =
   do encorecPath <- getExecutablePath
      let encorecDir = dirname encorecPath
          incPath = encorecDir <> "inc/"
          sourceName = dropExtension sourcePath
          srcDir = sourceName ++ "_lib"
-         libName = "libenc" ++ (takeFileName sourceName) ++ ".a"
-         headerFile = srcDir </> ("libenc" ++ ((show . moduleName . moduledecl) prog) ++ ".h")
-         sharedFile = srcDir </> "shared.c"
-         makefile   = srcDir </> "Makefile"  
+         libName = "libenc" ++ (takeFileName sourceName) ++ ".a" 
   
      let emitted = compileToC prog
          header = getHeader emitted
@@ -323,14 +321,15 @@ compileLibrary originalProg prog sourcePath options =
          shared = getShared emitted
          libImports = libraries prog
     
-     let encoreNames = map (\(name, _) -> changeFileExt name "encore.o") classes
+     let encoreNames = 
+           map (\(name, _) -> changeFileExt name "encore.o") classes
+         headerFile = srcDir </> ("libenc" ++ ((show . moduleName . moduledecl) prog) ++ ".h")
+         sharedFile = srcDir </> "shared.c"
+         makefile   = srcDir </> "Makefile" 
          encoreClassNames = map (\(name, _) -> changeFileExt name "encore.c") classes
          sharedFileName = "shared.c"
 
-         libFolders = let getBaseDir p = ((show . takeDirectory . source) p) 
-                          getSrcDir p = ((show . moduleName . moduledecl) p) ++ "_lib"
-                        in
-                          (nub (map (\p -> getBaseDir p </> getSrcDir p) libImports))
+         libFolders = getLibFolders libImports
 
          localHeaderIncludes = concatMap (\str -> "-I " ++ str ++ " ") libFolders
 
@@ -425,7 +424,7 @@ main =
 
        when (CreateLibrary `elem` options) $
             mapM_ (\p -> when (not $ precompiled p) $ reportPrecompileImportError $ source p) 
-                (Map.delete sourcePath programTable)
+                (Map.delete (shortenPrelude preludePaths sourcePath) programTable)
               
              
 
@@ -445,8 +444,8 @@ main =
        let optimizedTable = fmap optimizeProgram capturecheckedTable
 
        verbose options "== Generating code =="
-       let (mainDir, mainName) = dirAndName sourcePath
-           mainSource = mainDir </> mainName
+       --let (mainDir, mainName) = dirAndName (shortenPrelude preludePaths sourcePath)
+       let mainSource = (shortenPrelude preludePaths sourcePath)--mainDir </> mainName
 
        --Separate the main program from the modules before compressing.
        let source = fromJust $ Map.lookup mainSource optimizedTable 
@@ -464,7 +463,7 @@ main =
            Nothing    -> return ()
 
        exeName <- if CreateLibrary `elem` options 
-                  then compileLibrary ast fullAst' sourcePath options
+                  then compileLibrary fullAst' sourcePath options
                   else compileProgram fullAst' sourcePath options
 
        when (Run `elem` options && not (CreateLibrary `elem` options))

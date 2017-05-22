@@ -24,6 +24,7 @@ data FileDescriptor = Stdout | Stderr
 
 data Program = Program {
   source :: FilePath,
+  fullPath :: FilePath,
   precompiled :: Bool,
   moduledecl :: ModuleDecl,
   etl :: [EmbedTL],
@@ -174,15 +175,11 @@ data FunctionHeader =
         htypeparams :: [Type],
         hname       :: Name,
         htype       :: Type,
-        hparams     :: [ParamDecl],
-        hnamePrefix :: Name
+        hparams     :: [ParamDecl]
     } deriving(Eq, Show)
 
 
 setHeaderType ty h = h{htype = ty}
-
-sethnamePrefix :: Name -> FunctionHeader -> FunctionHeader
-sethnamePrefix n h = h {hnamePrefix = n}
 
 setHeaderModifier :: [Modifier] -> FunctionHeader -> FunctionHeader
 setHeaderModifier mod h = h {hmodifiers = nub mod}
@@ -204,8 +201,7 @@ data Function =
       funheader :: FunctionHeader,
       funbody   :: Expr,
       funlocals :: [Function],
-      funsource :: FilePath,
-      funNamePrefix :: Name
+      funsource :: FilePath
     } deriving (Show)
 
 functionName = hname . funheader
@@ -502,7 +498,6 @@ emptyConstructor cdecl =
                               ,hname = constructorName
                               ,hparams = []
                               ,htype = unitType
-                              ,hnamePrefix = Name ""
                               }
              ,mbody = Skip (meta pos)
              ,mlocals = []}

@@ -279,51 +279,12 @@ translatePassiveClass prog cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) table
                  (Ptr ponyMsgT, Var "_m")])
                (Comm "Stub! Might be used when we have dynamic dispatch on passive classes")
 
-traitMethodSelector :: ProgramTable -> A.ClassDecl -> CCode Toplevel
-traitMethodSelector table A.Class{A.cname, A.ccomposition} =
-  let
-    retType = Static (Ptr void)
-    fname = traitMethodSelectorName
-    args = [(Typ "int" , Var "id")]
-    cond = Var "id"
-    traitTypes = A.typesFromTraitComposition ccomposition
-    traitMethods = map (`lookupMethods` table) traitTypes
-    cases = concat $ zipWith (traitCase cname) traitTypes traitMethods
-    err = String "error, got invalid id: %d"
-    defaultCase = Statement $ Call (Nam "printf") [err, AsExpr $ Var "id"]
-    switch = Switch cond cases defaultCase
-    body = Seq [ switch, Return Null ]
-  in
-    Function retType fname args body
-  where
-    traitCase :: Ty.Type -> Ty.Type -> [A.FunctionHeader] ->
-                 [(CCode Name, CCode Stat)]
-    traitCase cname tname tmethods =
-        let
-            methodNames = map A.hname tmethods
-            caseNames   = map (msgId tname) methodNames
-            caseStmts   = map (Return . methodImplName cname) methodNames
-        in zip caseNames caseStmts ++
-           if Ty.isActiveSingleType tname then
-             let
-                 futCaseNames = map (futMsgId tname) methodNames
-                 futCaseStmts =
-                   map (Return . callMethodFutureName cname) methodNames
-                 oneWayCaseNames = map (oneWayMsgId tname) methodNames
-                 oneWayCaseStmts =
-                   map (Return . methodImplOneWayName cname) methodNames
-             in
-               zip futCaseNames futCaseStmts ++
-               zip oneWayCaseNames oneWayCaseStmts
-           else
-             []
-
 traitMethodSelectorIf :: ProgramTable -> A.ClassDecl -> CCode Toplevel
 traitMethodSelectorIf table A.Class{A.cname, A.ccomposition} =
   let
     retType = Static (Ptr void)
     fname = traitMethodSelectorName
-    args = [(Ptr $ Typ "char", Var "id")]
+    args = [(Ptr $ Typ "void", Var "id")]
 
     
     traitTypes = A.typesFromTraitComposition ccomposition
@@ -332,7 +293,7 @@ traitMethodSelectorIf table A.Class{A.cname, A.ccomposition} =
     cases = concat $ zipWith (traitCase cname) traitTypes traitMethods
 
     eq = BinOp (Nam "==")
-    expressions = map (\(name, body) -> (Call (Nam "strcmp") [AsExpr $ Var "id", String $ show name] `eq` Int 0, body)) cases
+    expressions = map (\(name, body) -> (AsExpr (Var "id") `eq` Amp name, body)) cases
 
 
     err = String "error, got invalid id: %s"

@@ -84,7 +84,8 @@ generateHeader p =
     [externMainRtti] ++
 
     [commentSection "Trait types"] ++
-    traitTypes
+    traitTypes ++
+    traitMethodDecls
    where
      externMainRtti = DeclTL (Typ "extern pony_type_t", Var "_enc__active_Main_type")
 
@@ -236,6 +237,22 @@ generateHeader p =
              self = (Ptr ponyTypeT, AsLval $ selfTypeField)
            in
              StructDecl (AsType $ refTypeName tname) [self]
+
+     traitMethodDecls =
+        let
+          dicts = map (A.getType &&& A.traitInterface) traits
+          pairs = concatMap (\(t, hs) -> zip (repeat t) (map A.hname hs)) dicts
+          syncs = map (show . uncurry msgId) pairs
+          futs  = map (show . uncurry futMsgId) pairs
+          oneways = map (show . uncurry oneWayMsgId) pairs
+        in 
+           map (\s -> DeclTL (int, Var s)) syncs ++
+           map (\f -> DeclTL (int, Var f)) futs ++
+           map (\o -> DeclTL (int, Var o)) oneways
+        
+          
+
+
 
      runtimeTypeDecls = map typeDecl classes ++ map typeDecl traits
        where

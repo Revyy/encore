@@ -72,8 +72,6 @@ module Types(
             ,setRefNamespace
             ,getRefSourceFile
             ,setRefSourceFile
-            ,setRefNamePrefix
-            ,getRefNamePrefix
             ,translateTypeNamespace
             ,getTypeParameters
             ,setTypeParameters
@@ -216,7 +214,6 @@ safeToComposeWith cls trait
 data RefInfo = RefInfo{refId         :: String
                       ,parameters    :: [Type]
                       ,mode          :: Maybe Mode
-                      ,refNamePrefix :: Name
                       ,refNamespace  :: Maybe Namespace
                       ,refSourceFile :: Maybe FilePath
                       }
@@ -383,16 +380,6 @@ hasRefSourceFile ty
     | isRefAtomType ty || isTypeSynonym ty
     , info <- refInfo $ inner ty = isJust $ refSourceFile info
     | otherwise = False
-
-
-setRefNamePrefix prefix ty 
-    | isRefAtomType ty || isTypeSynonym ty =
-        applyInnerRefInfo (\info -> info{refNamePrefix = prefix}) ty
-    | otherwise = error $ "Types.hs: tried to set the namePrefix of " ++ show ty
-
-getRefNamePrefix ty
-    | isRefAtomType ty || isTypeSynonym ty = refNamePrefix (refInfo $ inner ty)
-    | otherwise = error $ "Types.hs: tried to get the namePrefix of " ++ show ty
 
 translateTypeNamespace :: Map FilePath Namespace -> Type -> Type
 translateTypeNamespace table = typeMap translate
@@ -709,7 +696,6 @@ refTypeWithParams refId parameters =
       refInfo = RefInfo{refId
                        ,parameters
                        ,mode = Nothing
-                       ,refNamePrefix = Name ""
                        ,refNamespace = Nothing
                        ,refSourceFile = Nothing
                        }
@@ -721,7 +707,6 @@ classType name parameters =
   Type{inner = ClassType{refInfo = RefInfo{refId = name
                                           ,parameters
                                           ,mode = Nothing
-                                          ,refNamePrefix = Name ""
                                           ,refNamespace = Nothing
                                           ,refSourceFile = Nothing
                                           }
@@ -734,7 +719,6 @@ traitType name parameters =
     Type{inner = TraitType{refInfo = RefInfo{refId = name
                                             ,parameters
                                             ,mode = Nothing
-                                            ,refNamePrefix = Name ""
                                             ,refNamespace = Nothing
                                             ,refSourceFile = Nothing
                                             }
@@ -985,7 +969,6 @@ typeSynonym name parameters resolution =
   typ TypeSynonym{refInfo = RefInfo{refId = name
                                    ,parameters
                                    ,mode = Nothing
-                                   ,refNamePrefix = Name ""
                                    ,refNamespace = Nothing
                                    ,refSourceFile = Nothing
                                    }

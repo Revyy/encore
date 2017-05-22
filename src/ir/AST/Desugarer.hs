@@ -31,7 +31,6 @@ desugarProgram p@(Program{traits, classes, functions}) =
     desugarClass c@(Class{cmeta, cmethods, cname})
       | isActive c = c{cmethods = map desugarMethod (await:suspend:cmethods)}
       where
-        namePrefix = getRefNamePrefix cname
         await = Method{mmeta
                       ,mimplicit = True
                       ,mheader=awaitHeader
@@ -42,8 +41,7 @@ desugarProgram p@(Program{traits, classes, functions}) =
                             ,htypeparams=[typeVar "_t"]
                             ,hname=Name "await"
                             ,htype=unitType
-                            ,hparams=[awaitParam]
-                            ,hnamePrefix = namePrefix}
+                            ,hparams=[awaitParam]}
         awaitParam = Param{pmeta, pmut=Val, pname=Name "f", ptype=futureType $ typeVar "_t"}
         suspend = Method{mmeta
                         ,mimplicit = True
@@ -55,8 +53,7 @@ desugarProgram p@(Program{traits, classes, functions}) =
                               ,htypeparams=[]
                               ,hname=Name "suspend"
                               ,htype=unitType
-                              ,hparams=[]
-                              ,hnamePrefix = namePrefix}
+                              ,hparams=[]}
         pmeta = Meta.meta (Meta.getPos cmeta)
         emeta = Meta.meta (Meta.getPos cmeta)
         mmeta = Meta.meta (Meta.getPos cmeta)

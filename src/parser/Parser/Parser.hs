@@ -463,6 +463,7 @@ program = do
   let (classes, traits, typedefs, functions) = partitionDecls decls
   eof
   return Program{source
+                ,fullPath = source
                 ,precompiled=False
                 ,moduledecl
                 ,etl
@@ -577,7 +578,6 @@ functionHeader =
                  ,hname
                  ,hparams
                  ,htype
-                 ,hnamePrefix = Name ""
                  }
 
 streamMethodHeader :: EncParser FunctionHeader
@@ -626,7 +626,6 @@ funHeaderAndBody =
                      ,funbody = makeBody block
                      ,funlocals = []
                      ,funsource = ""
-                     ,funNamePrefix = Name ""
                      }
 
 makeBody :: [Expr] -> Expr

@@ -3,6 +3,7 @@ module ModuleExpander(
                      ,buildProgramTable
                      ,compressProgramTable
                      ,dirAndName
+                     ,shortenPrelude
                      ) where
 
 import Identifiers
@@ -12,7 +13,7 @@ import Parser.Parser
 import Literate
 import Typechecker.Environment
 import AST.Meta
-import Types(setRefSourceFile, setRefNamespace, setRefNamePrefix)
+import Types(setRefSourceFile, setRefNamespace)
 
 import SystemUtils
 import Control.Monad
@@ -78,19 +79,21 @@ findAndImportModules importDirs preludePaths sourceDir sourceName
                    else imports
 
   sources <- mapM (findSource importDirs sourceDir) withStdlib
+
   let imports'   = zipWith setImportSource sources withStdlib
-      classes'   = map (setClassSource sourcePath) classes
-      traits'    = map (setTraitSource sourcePath) traits
-      typedefs'  = map (setTypedefSource sourcePath) typedefs
-      functions' = map (setFunctionSource sourcePath) functions
-      p' = p{source    = sourcePath
+      classes'   = map (setClassSource shortSource) classes
+      traits'    = map (setTraitSource shortSource) traits
+      typedefs'  = map (setTypedefSource shortSource) typedefs
+      functions' = map (setFunctionSource shortSource) functions
+      p' = p{source    = shortSource
+            ,fullPath = sourcePath
             ,imports   = imports'
             ,classes   = classes'
             ,traits    = traits'
             ,typedefs  = typedefs'
             ,functions = functions'
             }
-      newTable = Map.insert sourcePath p' table
+      newTable = Map.insert shortSource p' table
   foldM (importModule importDirs preludePaths) newTable sources
   where
     moduleNamespace = if moduledecl == NoModule
@@ -98,21 +101,22 @@ findAndImportModules importDirs preludePaths sourceDir sourceName
                       else explicitNamespace [modname moduledecl]
     
     sourcePath = sourceDir </> sourceName
-
-    namePrefix = Name $ sourceToString $ shortenPrelude preludePaths $ replaceExtension sourcePath ".enc"
-
-    setImportSource source i = i{isource = Just source}
+    shortSource = shortenPrelude preludePaths sourcePath
+    
+    setImportSource source i =
+         let shortPath = shortenPrelude preludePaths source
+         in i{isource = Just shortPath}
     setClassSource source c@Class{cname} =
       c{cname = setRefNamespace moduleNamespace $
-                setRefSourceFile source (setRefNamePrefix namePrefix cname)}
+                setRefSourceFile source cname}
     setTraitSource source t@Trait{tname} =
       t{tname = setRefNamespace moduleNamespace $
-                setRefSourceFile source (setRefNamePrefix namePrefix tname)}
+                setRefSourceFile source tname}
     setTypedefSource source d@Typedef{typedefdef} =
       d{typedefdef = setRefNamespace moduleNamespace $
-                     setRefSourceFile source (setRefNamePrefix namePrefix typedefdef)}
+                     setRefSourceFile source typedefdef}
     setFunctionSource source f =
-      f{funsource = source, funNamePrefix = namePrefix, funheader = (sethnamePrefix namePrefix (funheader f))}
+      f{funsource = source}
 
 buildModulePath :: Namespace -> FilePath
 buildModulePath (NSExplicit ns)  =

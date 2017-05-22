@@ -424,14 +424,14 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
           case ID.qnsource qname of
             Just source ->
                 ID.setSourceFile source $
-                ID.qLocal $ ID.Name ((show $ A.hnamePrefix header) ++ (show $ A.hname header))
+                ID.qLocal $ ID.Name $ show $ A.hname header
             Nothing ->
-                ID.qLocal $ ID.Name ((show $ A.hnamePrefix header) ++ (show $ A.hname header))
+                ID.qLocal $ ID.Name $ show $ A.hname header
 
   translate fun@(A.FunctionAsValue {A.typeArgs, A.qname}) = do
     tmp <- Var <$> Ctx.genSym
     (_, header) <- gets (Ctx.lookupFunction qname)
-    let funName =  functionAsValueWrapperNameOf header
+    let funName = functionAsValueWrapperNameOf header qname
     (rtArray, rtArrayInit) <- runtimeTypeArguments typeArgs
     return (tmp,
             Seq $
@@ -1403,10 +1403,10 @@ traitMethod idFun this targetType name typeargs args resultType =
     argTypes = map (translate . A.getType) args
     declF f = FunPtrDecl resultType (Nam f) $
                 Ptr (Ptr encoreCtxT):thisType: Ptr (Ptr ponyTypeT): argTypes
-    declVtable vtable = FunPtrDecl (Ptr void) (Nam vtable) [Ptr $ Typ "char"]
+    declVtable vtable = FunPtrDecl (Ptr void) (Nam vtable) [Ptr $ Typ "void"]
     vtable this = this `Arrow` selfTypeField `Arrow` Nam "vtable"
     initVtable this v = Assign (Var v) $ Cast (Ptr void) $ vtable this
-    initF f vtable id = Assign (Var f) $ Call (Nam vtable) [String $ show id]
+    initF f vtable id = Assign (Var f) $ Call (Nam vtable) [Amp id]
     callF f this args typeArgs = Call (Nam f) $ AsExpr encoreCtxVar : Cast thisType this :
                                        AsExpr typeArgs : map AsExpr args
     ret tmp fcall = Assign (Decl (resultType, Var tmp)) fcall
