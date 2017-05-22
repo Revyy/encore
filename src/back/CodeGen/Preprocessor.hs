@@ -10,7 +10,9 @@ import qualified Types as Ty
 
 -- | Functions run on the entire AST before code generation.
 preprocess :: A.Program -> A.Program
-preprocess = injectTraitsToClasses . giveClosuresUniqueNames
+preprocess = injectTraitsToClasses . giveClosuresUniqueNames . processLibs
+    where
+        processLibs p = p{A.libraries = map (injectTraitsToClasses . giveClosuresUniqueNames) (A.libraries p)}
 
 injectTraitsToClasses :: A.Program -> A.Program
 injectTraitsToClasses p =
