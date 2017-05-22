@@ -190,8 +190,8 @@ generateHeader p =
                       | null xs   = []
                       | otherwise = tail xs
                 in
-                       Enum $ (Nam  $ (head allNames) ++ "= 1024") : map Nam (safeTail allNames)
-      
+                       Enum $ (Nam  $ head allNames ++ "= 1024") : map Nam (safeTail allNames)
+
      classEnums =
        let
         classIds = map (refTypeId . A.getType) classes

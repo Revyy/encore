@@ -169,7 +169,7 @@ encoreName kind name =
 qualifyRefType :: Ty.Type -> String
 qualifyRefType ty
   | isRefAtomType ty = sourceToString (Ty.getRefSourceFile ty) ++
-                        "_" ++ Ty.getId ty
+                       "_" ++ Ty.getId ty
   | otherwise = error "CCodeNames.hs: not a ref type: " ++ show ty
 
 fixPrimes name

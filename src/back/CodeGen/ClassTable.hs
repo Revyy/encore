@@ -37,8 +37,8 @@ withLocalFunctions names funs cnames table@ProgramTable{localtable} =
 
 buildProgramTable :: Program -> ProgramTable
 buildProgramTable p =
-  let ctable = buildClassTable p ++ (concatMap (buildClassTable)  (libraries p))
-      ftable = buildFunctionTable p ++ (concatMap (buildFunctionTable) (libraries p))
+  let ctable = buildClassTable p ++ (concatMap buildClassTable  (libraries p))
+      ftable = buildFunctionTable p ++ (concatMap buildFunctionTable (libraries p))
   in ProgramTable{ctable, ftable, localtable = []}
 
 buildClassTable :: Program -> ClassTable

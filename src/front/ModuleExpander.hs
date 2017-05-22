@@ -176,8 +176,8 @@ importModule importDirs preludePaths table source
            in findAndImportModules importDirs preludePaths
                                    sourceDir sourceName table ast'
 
-compressProgramTable' :: Program -> ProgramTable -> Program
-compressProgramTable' source modules = foldl joinTwo source modules
+combinePrograms :: Program -> ProgramTable -> Program
+combinePrograms = foldl joinTwo
   where
     joinTwo :: Program -> Program -> Program
     joinTwo p@Program{etl=etl,  functions=functions,  traits=traits,  classes=classes}
@@ -189,30 +189,30 @@ compressProgramTable' source modules = foldl joinTwo source modules
 compressProgramTable :: Program -> ProgramTable -> Program
 compressProgramTable mainProg table = 
   let regular   = Map.filter (not . precompiled) table
-      prog      = compressProgramTable' mainProg regular
-      resolved = resolveDeps table prog Map.empty Map.empty
+      prog      = combinePrograms mainProg regular
+      resolved = resolveLinkOrder table prog Map.empty Map.empty
   in 
       prog{libraries=resolved}
 
 
-resolveDeps :: ProgramTable -> Program -> ProgramTable -> ProgramTable -> [Program]
-resolveDeps libs _ _ _ | null libs = []
-resolveDeps table lib@Program{source, imports} resolvedMap unresolvedMap = do
-    let table' = if not $ (moduledecl lib) == NoModule 
-                 then Map.insert source lib table
-                 else table
+resolveLinkOrder :: ProgramTable -> Program -> ProgramTable -> ProgramTable -> [Program]
+resolveLinkOrder libs _ _ _ | null libs = []
+resolveLinkOrder table lib@Program{source, imports} resolvedMap unresolvedMap = do
+    let table' = if (moduledecl lib) == NoModule 
+                 then table  
+                 else Map.insert source lib table
     let (resolved, _, _) = foldl (resolve table') ([], resolvedMap, unresolvedMap) imports
     resolved
 
 
-resolveDeps' :: ProgramTable -> Program -> [Program] -> ProgramTable -> ProgramTable -> ([Program], ProgramTable, ProgramTable)
-resolveDeps' table lib@Program{source, imports} resolved resolvedMap unresolvedMap = do
+resolveDeps :: ProgramTable -> Program -> [Program] -> ProgramTable -> ProgramTable -> ([Program], ProgramTable, ProgramTable)
+resolveDeps table lib@Program{source, imports} resolved resolvedMap unresolvedMap = do
     let updUnresolved = Map.insert source lib unresolvedMap
         (resolved', resolvedMap', unresolvedMap') = foldl (resolve table) (resolved, resolvedMap, updUnresolved) imports
     let finalResolvedMap = (Map.insert source lib resolvedMap')
-        finalUnResolvedMap = (Map.delete source unresolvedMap')
+        finalUnresolvedMap = (Map.delete source unresolvedMap')
         finalResolved = if precompiled lib then lib:resolved' else resolved'
-    (finalResolved, finalResolvedMap, finalUnResolvedMap) 
+    (finalResolved, finalResolvedMap, finalUnresolvedMap) 
 
 
 resolve :: ProgramTable -> ([Program], ProgramTable, ProgramTable) -> ImportDecl -> ([Program], ProgramTable, ProgramTable)
@@ -227,7 +227,7 @@ resolve table (resolved, resolvedMap, unresolvedMap) i@Import{isource}
   | otherwise = let (resolved', resolvedMap', unresolvedMap') = do 
                       let key = fromJust isource
                           lib' = fromJust (Map.lookup key table)
-                      resolveDeps' table lib' resolved resolvedMap unresolvedMap
+                      resolveDeps table lib' resolved resolvedMap unresolvedMap
                       in (resolved', resolvedMap', unresolvedMap')
 
 

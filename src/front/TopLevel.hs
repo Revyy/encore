@@ -123,10 +123,10 @@ optionMappings =
         "Compile and run the program, but do not produce executable file."),
        (NoArg NoGC, "", "--no-gc", "",
         "DEBUG: disable GC and use C-malloc for allocation."),
+       (NoArg CreateLibrary, "-cl", "--create-library", "",
+        "Produces a static library with the contents of the module."),
        (NoArg Help, "", "--help", "",
-        "Display this information."),
-         (NoArg CreateLibrary, "-cl", "--create-library", "",
-        "Produces a static library with the contents of the module.")
+        "Display this information.")
       ]
   where
     makeMapping (holder, short, long, optArg, desc) =
@@ -220,6 +220,9 @@ getLibFolders libImports =
   in
     (nub (map (\p -> (getBaseDir p </> getSrcDir p)) libImports))
 
+getModuleName :: Program -> String
+getModuleName = show . moduleName . moduledecl
+
 compileProgram prog sourcePath options =
     do encorecPath <- getExecutablePath
        let encorecDir = dirname encorecPath
@@ -243,7 +246,7 @@ compileProgram prog sourcePath options =
        let encoreNames =
              map (\(name, _) -> changeFileExt name "encore.c") classes
            classFiles = map (srcDir </>) encoreNames
-           headerFile = srcDir </> ("enc" ++ ((show . moduleName . moduledecl) prog) ++ ".h")
+           headerFile = srcDir </> ("enc" ++ (getModuleName prog) ++ ".h")
            sharedFile = srcDir </> "shared.c"
            makefile   = srcDir </> "Makefile"
 
@@ -251,7 +254,7 @@ compileProgram prog sourcePath options =
            
            localLibs = concatMap (\str -> "-L " ++ str ++ " ") libFolders
            localHeaderIncludes = concatMap (\str -> "-I " ++ str ++ " ") libFolders
-           links  = concatMap (\p -> "-lenc" ++ ((show . moduleName . moduledecl) p) ++ " ") (libImports)
+           links  = concatMap (\p -> "-lenc" ++ (getModuleName p) ++ " ") (libImports)
 
            cc    = "clang"
            customFlags = case find isCustomFlags options of
@@ -323,7 +326,7 @@ compileLibrary prog sourcePath options =
     
      let encoreNames = 
            map (\(name, _) -> changeFileExt name "encore.o") classes
-         headerFile = srcDir </> ("libenc" ++ ((show . moduleName . moduledecl) prog) ++ ".h")
+         headerFile = srcDir </> ("libenc" ++ (getModuleName prog) ++ ".h")
          sharedFile = srcDir </> "shared.c"
          makefile   = srcDir </> "Makefile" 
          encoreClassNames = map (\(name, _) -> changeFileExt name "encore.c") classes

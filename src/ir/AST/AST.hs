@@ -124,7 +124,6 @@ moduleName Module{modname} = modname
 moduleExports NoModule = Nothing
 moduleExports Module{modexports} = modexports
 
-
 data ImportDecl = Import {
       imeta   :: Meta ImportDecl,
       itarget :: Namespace,
@@ -880,6 +879,6 @@ getTrait t p =
   let
     match t trait = getId t == getId (tname trait)
   in
-    fromJust $ find (match t) ((traits p) ++ (concatMap traits (libraries p)))
+    fromJust $ find (match t) (traits p ++ (concatMap traits (libraries p)))
 
 allEmbedded = map etlheader . etl

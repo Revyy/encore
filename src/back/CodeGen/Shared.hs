@@ -28,9 +28,10 @@ generateShared prog@(A.Program{A.source, A.moduledecl, A.classes, A.functions, A
       [mainFunction]
     where
 
-      localInclude = if A.precompiled prog
-                     then libHeaderName 
-                     else nonLibHeaderName
+      localInclude = 
+        if A.precompiled prog
+        then libHeaderName 
+        else nonLibHeaderName
       
       nonLibHeaderName = ("enc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
       libHeaderName = ("libenc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
@@ -64,12 +65,13 @@ generateShared prog@(A.Program{A.source, A.moduledecl, A.classes, A.functions, A
                AssignTL (Decl (ponyMsgT, Var "m_run_closure"))
                         (Record [Int 3, Record [encorePrimitive, encorePrimitive, encorePrimitive]])
 
-      mainFunction | not $ A.precompiled prog =
-                      Function (Typ "int") (Nam "main")
-                              [(Typ "int", Var "argc"), (Ptr . Ptr $ char, Var "argv")]
-                              $ Return encoreStart
-                   | A.precompiled prog = 
-                      commentSection ("No main function needed for " ++ (show . A.modname . A.moduledecl) prog)
+      mainFunction 
+        | not $ A.precompiled prog =
+            Function (Typ "int") (Nam "main")
+              [(Typ "int", Var "argc"), (Ptr . Ptr $ char, Var "argv")]
+                $ Return encoreStart
+        | A.precompiled prog = 
+            commentSection ("No main function needed for " ++ (show . A.modname . A.moduledecl) prog)
           where
             encoreStart =
                 case find isLocalMain classes of
