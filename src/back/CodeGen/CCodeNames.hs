@@ -315,8 +315,8 @@ functionWrapperNameOf f@A.Function{A.funsource} =
       ID.setSourceFile funsource $
       ID.topLevelQName (ID.Name ((show $ A.funNamePrefix f) ++ (show $ A.functionName f)))
 
-functionWrapperNameOf' :: A.FunctionHeader -> CCode Name
-functionWrapperNameOf' f@A.Header{A.hnamePrefix, A.hname} =
+functionAsValueWrapperNameOf :: A.FunctionHeader -> CCode Name
+functionAsValueWrapperNameOf f@A.Header{A.hnamePrefix, A.hname} =
   Nam $ encoreName "fun_wrapper" $
       qualifiedToString $
       ID.topLevelQName (ID.Name ((show hnamePrefix) ++ (show hname)))      
