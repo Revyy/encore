@@ -273,7 +273,7 @@ fieldName name =
 qualifiedToString :: ID.QualifiedName -> String
 qualifiedToString ID.QName{ID.qnsource = Nothing, ID.qnlocal} = show qnlocal
 qualifiedToString ID.QName{ID.qnsource = Just s, ID.qnlocal} =
-  sourceToString s ++ show qnlocal
+  sourceToString s ++ "_" ++ show qnlocal
 
 sourceToString :: FilePath -> String
 sourceToString = map translateSep . filter (/='.') . dropEnc

@@ -426,7 +426,7 @@ instance Translatable A.Expr (State Ctx.Context (CCode Lval, CCode Stat)) where
                 ID.setSourceFile source $
                 ID.qLocal $ ID.Name $ show $ A.hname header
             Nothing ->
-                ID.qLocal $ ID.Name $ show $ A.hname header
+                ID.qLocal $ ID.Name $ "_" ++ (show $ A.hname header)
 
   translate fun@(A.FunctionAsValue {A.typeArgs, A.qname}) = do
     tmp <- Var <$> Ctx.genSym
