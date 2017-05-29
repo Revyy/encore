@@ -2,6 +2,7 @@ module CodeGen.Header(generateHeader) where
 
 import Control.Arrow ((&&&))
 import Data.List (partition)
+import System.FilePath(dropExtension)
 
 import CodeGen.Typeclasses
 import CodeGen.CCodeNames
@@ -103,7 +104,14 @@ generateHeader p =
      embedded = A.allEmbedded p
 
      libs = A.libraries p
-     libHeaders = map (\p -> "libenc" ++ ((show . A.moduleName . A.moduledecl) p) ++ ".h") libs 
+
+     libraryHeader lib = 
+       let folder = dropExtension (A.getFullProgramSource lib) ++ "_lib"
+           name = "libenc" ++ ((show . A.moduleName . A.moduledecl) lib) ++ ".h"
+       in folder ++ "/" ++ name
+
+
+     libHeaders = map libraryHeader libs 
 
      headerDef = if A.precompiled p 
                  then "ENCORE_LIB_" ++ ((map toUpper . show . A.moduleName . A.moduledecl) p) ++ "_H" 

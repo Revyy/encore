@@ -6,6 +6,7 @@ import CodeGen.CCodeNames
 import CodeGen.Typeclasses
 import CodeGen.Function
 import CodeGen.ClassTable
+import System.FilePath (dropExtension, takeFileName)
 import qualified AST.AST as A
 
 import Data.Maybe
@@ -34,7 +35,7 @@ generateShared prog@(A.Program{A.source, A.moduledecl, A.classes, A.functions, A
         else nonLibHeaderName
       
       nonLibHeaderName = ("enc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
-      libHeaderName = ("libenc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
+      libHeaderName = ("libenc" ++ ((takeFileName . dropExtension . A.getFullProgramSource) prog) ++ ".h")
 
       globalFunctions =
         [translate f table globalFunction | f <- functions] ++
@@ -86,7 +87,7 @@ generateShared prog@(A.Program{A.source, A.moduledecl, A.classes, A.functions, A
                             "This program has no Main class and will now exit"
                       in Call (Nam "puts") [String msg]
             isLocalMain c@A.Class{A.cname} = A.isMainClass c &&
-                                             getRefSourceFile cname == source
+                                             getRefSourceFile cname == A.getSource source
        
 
 commentSection :: String -> CCode Toplevel

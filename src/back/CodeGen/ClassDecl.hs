@@ -8,7 +8,7 @@ equivalent.
 -}
 
 module CodeGen.ClassDecl () where
-
+import System.FilePath(dropExtension, takeFileName)
 import CodeGen.Typeclasses
 import CodeGen.CCodeNames
 import CodeGen.MethodDecl ()
@@ -61,7 +61,7 @@ localInclude prog = if A.precompiled prog
                     else nonLibHeaderName prog
       
 nonLibHeaderName prog = ("enc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
-libHeaderName prog = ("libenc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
+libHeaderName prog = ("libenc" ++ ((takeFileName . dropExtension . A.getFullProgramSource) prog) ++ ".h")
 
 typeStructDecl :: A.ClassDecl -> CCode Toplevel
 typeStructDecl cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) =

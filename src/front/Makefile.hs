@@ -21,7 +21,6 @@ target = text "$(TARGET)"
 inc = text "$(INC)"
 lib = text "$(LIB)"
 local = text "$(LOCAL)"
-link = text "$(LINK)"
 deps = text "$(DEPS)"
 defs = text "$(DEFINES)"
 dSYM = text ".dSYM"
@@ -30,19 +29,17 @@ o = (text "-o" <+>)
 parent = text ".."
 
 generateMakefile :: [String] ->
-   String -> String -> String -> String -> String -> String -> String -> String -> String -> Doc
-generateMakefile classFiles progName compiler ccFlags incPath defines libs headers locals links =
+   String -> String -> String -> String -> String -> String -> String -> Doc
+generateMakefile classFiles progName compiler ccFlags incPath defines libs locals =
     decl "CC" [compiler]
     $$
     decl "TARGET" [progName]
     $$
-    decl "INC" [incPath, headers]
+    decl "INC" [incPath]
     $$
     decl "LIB" [libs]
     $$
     decl "LOCAL" [locals]
-    $$
-    decl "LINK" [links]
     $$
     decl "FLAGS" [ccFlags]
     $$
@@ -56,10 +53,10 @@ generateMakefile classFiles progName compiler ccFlags incPath defines libs heade
          empty
     $\$
     rule target deps
-         (cc [flags, i inc, i parent, deps, link, lib, lib, defs, local, o target])
+         (cc [flags, i inc, i parent, deps, local, lib, lib, defs, o target])
     $\$
     rule bench deps
-         (cc [benchFlags, i inc, i parent, deps, link, lib, lib, defs, o target])
+         (cc [benchFlags, i inc, i parent, deps, local, lib, lib, defs, o target])
     $\$
     rule clean empty
          (rm [target, target <> dSYM])
@@ -74,13 +71,13 @@ generateMakefile classFiles progName compiler ccFlags incPath defines libs heade
                           tab <> cmd
 
 generateLibraryMakefile :: [String] ->
-   String -> String -> String -> String -> String -> String -> Doc
-generateLibraryMakefile classFiles libName compiler ccFlags incPath headers defines =
+   String -> String -> String -> String -> String -> Doc
+generateLibraryMakefile classFiles libName compiler ccFlags incPath defines =
     decl "CC" [compiler]
     $$
     decl "TARGET" [libName]
     $$
-    decl "INC" [incPath, headers]
+    decl "INC" [incPath]
     $$
     decl "FLAGS" [ccFlags]
     $$

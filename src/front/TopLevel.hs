@@ -215,8 +215,8 @@ processClassNames pairs =
 
 
 getLibFolders libImports = 
-  let getBaseDir p = ((show . takeDirectory . fullPath) p) 
-      getSrcDir p = ((show . moduleName . moduledecl) p) ++ "_lib"
+  let getBaseDir p = ((takeDirectory . getFullProgramSource) p) 
+      getSrcDir p = ((takeFileName . dropExtension . getFullProgramSource) p) ++ "_lib"
   in
     (nub (map (\p -> (getBaseDir p </> getSrcDir p)) libImports))
 
@@ -252,9 +252,7 @@ compileProgram prog sourcePath options =
 
            libFolders = getLibFolders libImports
            
-           localLibs = concatMap (\str -> "-L " ++ str ++ " ") libFolders
-           localHeaderIncludes = concatMap (\str -> "-I " ++ str ++ " ") libFolders
-           links  = concatMap (\p -> "-lenc" ++ (getModuleName p) ++ " ") (libImports)
+           localLibs = concatMap (\str -> str ++ "/*.a ") libFolders
 
            cc    = "clang"
            customFlags = case find isCustomFlags options of
@@ -271,9 +269,9 @@ compileProgram prog sourcePath options =
            debug = if Debug `elem` options then "-g" else ""
            libs  = libPath ++ "*.a"
                                 
-           cmd   = pg <+> opt <+> flags <+> libs <+> incs <+> localHeaderIncludes <+> debug
+           cmd   = pg <+> opt <+> flags <+> libs <+> incs <+> debug
            compileCmd = cc <+> cmd <+> oFlag <+> unwords classFiles <+>
-                        sharedFile <+> links <+> libs <+> libs <+> defines
+                        sharedFile <+> localLibs <+> libs <+> libs <+> defines
        
        --Write files
        createDirectoryIfMissing True srcDir
@@ -281,12 +279,12 @@ compileProgram prog sourcePath options =
        withFile headerFile WriteMode (output header)
        withFile sharedFile WriteMode (output shared)
        withFile makefile   WriteMode (output $
-          generateMakefile encoreNames execName cc cmd incPath defines libs localHeaderIncludes localLibs links)
+          generateMakefile encoreNames execName cc cmd incPath defines libs localLibs)
 
        when ((TypecheckOnly `notElem` options) || (Run `elem` options))
            (do files  <- getDirectoryContents "."
                let ofilesInc = unwords (filter (isSuffixOf ".o") files)
-               exitCode <- system $ compileCmd <+> ofilesInc <+> localLibs
+               exitCode <- system $ compileCmd <+> ofilesInc
                case exitCode of
                  ExitSuccess -> return ()
                  ExitFailure n ->
@@ -310,13 +308,19 @@ compileProgram prog sourcePath options =
       getDefine NoGC = "NO_GC"
       getDefine _ = ""
 
-compileLibrary prog sourcePath options =
+compileLibrary p sourcePath options =
   do encorecPath <- getExecutablePath
      let encorecDir = dirname encorecPath
          incPath = encorecDir <> "inc/"
-         sourceName = dropExtension sourcePath
-         srcDir = sourceName ++ "_lib"
-         libName = "libenc" ++ (takeFileName sourceName) ++ ".a" 
+         sourceName = case find isOutput options of
+                        Just (Output file) -> takeDirectory sourcePath </> file
+                        Nothing            -> dropExtension sourcePath
+
+         baseDir = dropExtension sourcePath
+         srcDir = baseDir ++ "_lib"
+         name = (takeFileName sourceName)
+         libName = "libenc" ++ name ++ ".a" 
+         prog = setModuleName name p
   
      let emitted = compileToC prog
          header = getHeader emitted
@@ -326,15 +330,13 @@ compileLibrary prog sourcePath options =
     
      let encoreNames = 
            map (\(name, _) -> changeFileExt name "encore.o") classes
-         headerFile = srcDir </> ("libenc" ++ (getModuleName prog) ++ ".h")
+         headerFile = srcDir </> ("libenc" ++ (takeFileName baseDir) ++ ".h")
          sharedFile = srcDir </> "shared.c"
          makefile   = srcDir </> "Makefile" 
          encoreClassNames = map (\(name, _) -> changeFileExt name "encore.c") classes
          sharedFileName = "shared.c"
 
          libFolders = getLibFolders libImports
-
-         localHeaderIncludes = concatMap (\str -> "-I " ++ str ++ " ") libFolders
 
          cc    = "clang"
          customFlags = case find isCustomFlags options of
@@ -347,7 +349,7 @@ compileLibrary prog sourcePath options =
 
          cdCmd = "cd" <+> srcDir <+> "&&"
          libCmd = "&& ar -rcs" <+> libName <+> "*.o"
-         compileCmd = cdCmd <+> cc <+> "-c" <+> cmd <+> localHeaderIncludes <+> unwords encoreClassNames <+> sharedFileName <+> libCmd
+         compileCmd = cdCmd <+> cc <+> "-c" <+> cmd <+> unwords encoreClassNames <+> sharedFileName <+> libCmd
          
      --Write files
      createDirectoryIfMissing True srcDir
@@ -355,7 +357,7 @@ compileLibrary prog sourcePath options =
      withFile headerFile WriteMode (output header)
      withFile sharedFile WriteMode (output shared)
      withFile makefile   WriteMode (output $
-           generateLibraryMakefile encoreNames libName cc cmd incPath localHeaderIncludes defines)
+           generateLibraryMakefile encoreNames libName cc cmd incPath defines)
      --Compile
      exitCode <- system $ compileCmd
      case exitCode of
@@ -369,6 +371,10 @@ compileLibrary prog sourcePath options =
 
      return srcDir
   where
+
+    isOutput (Output _) = True
+    isOutput _ = False
+
     getDefines = unwords . map ("-D"++) .
                    filter (/= "") . map getDefine
     getDefine NoGC = "NO_GC"
@@ -426,7 +432,7 @@ main =
        programTable <- buildProgramTable importDirs preludePaths ast
 
        when (CreateLibrary `elem` options) $
-            mapM_ (\p -> when (not $ precompiled p) $ reportPrecompileImportError $ source p) 
+            mapM_ (\p -> when (not $ precompiled p) $ reportPrecompileImportError $ getFullProgramSource p) 
                 (Map.delete (shortenPrelude preludePaths sourcePath) programTable)
               
              
@@ -447,15 +453,15 @@ main =
        let optimizedTable = fmap optimizeProgram capturecheckedTable
 
        verbose options "== Generating code =="
-       --let (mainDir, mainName) = dirAndName (shortenPrelude preludePaths sourcePath)
-       let mainSource = (shortenPrelude preludePaths sourcePath)--mainDir </> mainName
+
+       let mainSource = (shortenPrelude preludePaths sourcePath)
 
        --Separate the main program from the modules before compressing.
        let source = fromJust $ Map.lookup mainSource optimizedTable 
            rest = Map.delete mainSource optimizedTable
 
 
-       let fullAst = setProgramSource mainSource $
+       let fullAst = setProgramSource mainSource sourcePath $
                      compressProgramTable source rest
        
        let fullAst' = if CreateLibrary `elem` options then fullAst{precompiled=True} else fullAst

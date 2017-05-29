@@ -441,7 +441,7 @@ partitionDecls = partitionDecls' [] [] [] []
 
 program :: EncParser Program
 program = do
-  source <- sourceName <$> getPosition
+  sourcePath <- sourceName <$> getPosition
   optional hashbang
   vspace
 
@@ -462,8 +462,7 @@ program = do
                    ]
   let (classes, traits, typedefs, functions) = partitionDecls decls
   eof
-  return Program{source
-                ,fullPath = source
+  return Program{source = Regular sourcePath
                 ,precompiled=False
                 ,moduledecl
                 ,etl
