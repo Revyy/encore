@@ -257,10 +257,6 @@ generateHeader p =
            map (\s -> DeclTL (int, Var s)) syncs ++
            map (\f -> DeclTL (int, Var f)) futs ++
            map (\o -> DeclTL (int, Var o)) oneways
-        
-          
-
-
 
      runtimeTypeDecls = map typeDecl classes ++ map typeDecl traits
        where

@@ -295,7 +295,6 @@ traitMethodSelectorIf table A.Class{A.cname, A.ccomposition} =
     eq = BinOp (Nam "==")
     expressions = map (\(name, body) -> (AsExpr (Var "id") `eq` Amp name, body)) cases
 
-
     err = String "error, got invalid id: %s"
     defaultCase = Statement $ Call (Nam "printf") [err, AsExpr $ Var "id"]
 

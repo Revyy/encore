@@ -59,7 +59,7 @@ buildLookupTable Program{source
                            Map.keys traitTable) ++
                  Map.keys functionTable
   in LookupTable {
-           sourceFile = source,
+           sourceFile = getSource source,
            isQualified = False,
            allNames,
            selectiveExports = moduleExports moduledecl,
@@ -107,10 +107,10 @@ buildEnvironment tables Program{source, imports, moduledecl} =
         if moduledecl == NoModule
         then emptyNamespace
         else explicitNamespace [moduleName moduledecl]
-      defaultTable = tables Map.! source
+      defaultTable = tables Map.! (getSource source)
       defaultAssoc =
         (defaultNamespace, defaultTable{selectiveExports = Nothing})
-      nonLocalLookupTables = filter ((/= source) . fst) $ Map.assocs tables
+      nonLocalLookupTables = filter ((/= (getSource source)) . fst) $ Map.assocs tables
       importedLookupTables =
         defaultAssoc :
         concatMap (performImport imports) nonLocalLookupTables

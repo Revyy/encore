@@ -28,7 +28,7 @@ desugarProgram p@(Program{traits, classes, functions}) =
   -- Automatically give await and supend to active classes
   -- Then the Actor trait is in place, this desugaring step will be changed
   -- so that the Actor trait is included instead
-    desugarClass c@(Class{cmeta, cmethods, cname})
+    desugarClass c@(Class{cmeta, cmethods})
       | isActive c = c{cmethods = map desugarMethod (await:suspend:cmethods)}
       where
         await = Method{mmeta

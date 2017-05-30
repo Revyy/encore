@@ -88,7 +88,7 @@ generateShared prog@(A.Program{A.source, A.moduledecl, A.classes, A.functions, A
                       in Call (Nam "puts") [String msg]
             isLocalMain c@A.Class{A.cname} = A.isMainClass c &&
                                              getRefSourceFile cname == A.getSource source
-       
+
 
 commentSection :: String -> CCode Toplevel
 commentSection s = Embed $ (take (5 + length s) $ repeat '/') ++ "\n// " ++ s
