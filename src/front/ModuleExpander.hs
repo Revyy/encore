@@ -110,8 +110,8 @@ findAndImportModules importDirs preludePaths sourceDir sourceName
     shortSource = shortenPrelude preludePaths sourcePath
     
     setImportSource source i =
-         let shortPath = shortenPrelude preludePaths source
-         in i{isource = Just shortPath}
+        let shortPath = shortenPrelude preludePaths source
+        in i{isource = Just shortPath}
     setClassSource source c@Class{cname} =
       c{cname = setRefNamespace moduleNamespace $
                 setRefSourceFile source cname}
@@ -125,7 +125,7 @@ findAndImportModules importDirs preludePaths sourceDir sourceName
       f{funsource = source}
 
 buildModulePath :: Namespace -> FilePath
-buildModulePath (NSExplicit ns)  =
+buildModulePath (NSExplicit ns) =
   let prefix = init ns
       suffix = last ns
       moduleDir = foldl (</>) "" $ map show prefix

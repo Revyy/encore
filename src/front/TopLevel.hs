@@ -201,6 +201,12 @@ output ast = flip hPrint ast
 writeClass srcDir (name, ast) =
     withFile (srcDir ++ "/" ++ name ++ ".encore.c") WriteMode (output ast)
 
+writeEncoreFiles srcDir classes (header, headerFile) (shared, sharedFile) = do
+  createDirectoryIfMissing True srcDir
+  mapM_ (writeClass srcDir) classes
+  withFile headerFile WriteMode (output header)
+  withFile sharedFile WriteMode (output shared)
+
 processClassNames pairs =
   let (names, classes) = unzip pairs
       unprimed = map (replace "'" "_prime") names
@@ -222,6 +228,22 @@ getLibFolders libImports =
 
 getModuleName :: Program -> String
 getModuleName = show . moduleName . moduledecl
+
+isOutput (Output _) = True
+isOutput _ = False
+
+isOptimise (Optimise _) = True
+isOptimise _ = False
+
+isCustomFlags (CustomFlags _) = True
+isCustomFlags _ = False
+
+getDefines = unwords . map ("-D"++) .
+                   filter (/= "") . map getDefine
+getDefine NoGC = "NO_GC"
+getDefine _ = ""
+
+
 
 compileProgram prog sourcePath options =
     do encorecPath <- getExecutablePath
@@ -274,10 +296,7 @@ compileProgram prog sourcePath options =
                         sharedFile <+> localLibs <+> libs <+> libs <+> defines
        
        --Write files
-       createDirectoryIfMissing True srcDir
-       mapM_ (writeClass srcDir) classes
-       withFile headerFile WriteMode (output header)
-       withFile sharedFile WriteMode (output shared)
+       writeEncoreFiles srcDir classes (header, headerFile) (shared, sharedFile)
        withFile makefile   WriteMode (output $
           generateMakefile encoreNames execName cc cmd incPath defines libs localLibs)
 
@@ -293,20 +312,8 @@ compileProgram prog sourcePath options =
                   (do runCommand $ "rm -rf" <+> srcDir
                       return ())
        return execName
-    where
-      isOutput (Output _) = True
-      isOutput _ = False
 
-      isOptimise (Optimise _) = True
-      isOptimise _ = False
-
-      isCustomFlags (CustomFlags _) = True
-      isCustomFlags _ = False
-
-      getDefines = unwords . map ("-D"++) .
-                   filter (/= "") . map getDefine
-      getDefine NoGC = "NO_GC"
-      getDefine _ = ""
+      
 
 compileLibrary p sourcePath options =
   do encorecPath <- getExecutablePath
@@ -352,10 +359,7 @@ compileLibrary p sourcePath options =
          compileCmd = cdCmd <+> cc <+> "-c" <+> cmd <+> unwords encoreClassNames <+> sharedFileName <+> libCmd
          
      --Write files
-     createDirectoryIfMissing True srcDir
-     mapM_ (writeClass srcDir) classes
-     withFile headerFile WriteMode (output header)
-     withFile sharedFile WriteMode (output shared)
+     writeEncoreFiles srcDir classes (header, headerFile) (shared, sharedFile)
      withFile makefile   WriteMode (output $
            generateLibraryMakefile encoreNames libName cc cmd incPath defines)
      --Compile
@@ -368,20 +372,7 @@ compileLibrary p sourcePath options =
      unless (KeepCFiles `elem` options)
                   (do runCommand $ cdCmd <+> "rm -rf" <+> "*.o" <+> "*.c" <+> "Makefile"
                       return ())
-
      return srcDir
-  where
-
-    isOutput (Output _) = True
-    isOutput _ = False
-
-    getDefines = unwords . map ("-D"++) .
-                   filter (/= "") . map getDefine
-    getDefine NoGC = "NO_GC"
-    getDefine _ = ""
-
-    isCustomFlags (CustomFlags _) = True
-    isCustomFlags _ = False
 
 
 main =
