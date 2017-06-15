@@ -1,0 +1,10 @@
+-- This file was automatically converted by encorec
+
+import TraitImportModule
+active class Main
+  def main() : unit
+    println(1)
+  end
+end
+class Foo : Reagent
+end

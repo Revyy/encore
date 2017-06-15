@@ -1,0 +1,11 @@
+-- This file was automatically converted by encorec
+
+import RestrictedExport
+fun bar() : unit
+  println("This is bar")
+end
+active class Main
+  def main() : unit
+    foo()
+  end
+end

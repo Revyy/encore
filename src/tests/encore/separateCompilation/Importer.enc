@@ -1,0 +1,13 @@
+-- This file was automatically converted by encorec
+
+import Lib
+active class Main
+  def main() : unit
+    let
+      f = new Foo
+    in
+      println(f.name())
+      ()
+    end
+  end
+end

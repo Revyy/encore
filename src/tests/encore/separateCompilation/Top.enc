@@ -1,0 +1,11 @@
+-- This file was automatically converted by encorec
+
+module Top
+import Std
+fun top() : int
+  10
+end
+fun id[a](x : a) : a
+  x
+end
+

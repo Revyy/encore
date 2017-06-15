@@ -1,0 +1,11 @@
+import SelectiveLib
+
+fun foo() : unit
+  println("This is foo")
+end
+
+active class Main
+  def main() : unit
+    foo()
+  end
+end

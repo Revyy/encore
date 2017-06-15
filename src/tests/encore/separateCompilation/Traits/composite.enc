@@ -1,0 +1,28 @@
+import Traits
+import TraitUser
+
+
+active class Main
+  def main() : unit
+    let
+      c = new C : T + U
+      x = if false then
+            null
+          else
+            c
+          end
+      y = foo(null)
+    in
+      match c with
+        case g(x) =>
+          println("This should not happen")
+        end
+        case f(n) =>
+          println(n)
+        end
+
+      end
+      println("Done!")
+    end
+  end
+end

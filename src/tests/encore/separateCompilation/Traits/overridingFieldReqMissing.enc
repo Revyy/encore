@@ -1,0 +1,10 @@
+import Traits
+import TraitUserFail
+
+
+active class Main
+  def main() : unit
+    val x = new Foo(2, 3) : T
+    println("Five = {}", x.foo())
+  end
+end

@@ -1,0 +1,16 @@
+module SelectiveLib(Foo)
+import String
+read trait T
+end
+
+read class Foo
+  def foo() : Bar
+    new Bar()
+  end
+end
+
+read class Bar : T
+  def bar() : unit
+    println("bar")
+  end
+end

@@ -1,0 +1,8 @@
+-- This file was automatically converted by encorec
+
+module TokenModule
+linear class Token
+  def foo() : unit
+    println("foo")
+  end
+end

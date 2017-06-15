@@ -1,0 +1,12 @@
+-- This file was automatically converted by encorec
+import LocalModule
+
+active class Main
+  def main() : unit
+    let
+      x = new LocalFunctionMethodFoo()
+    in
+      println(x.foo() + x.bar())
+    end
+  end
+end

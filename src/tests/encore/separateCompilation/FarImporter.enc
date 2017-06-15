@@ -1,0 +1,13 @@
+-- This file was automatically converted by encorec
+
+import FarLib
+active class Main
+  def main() : unit
+    let
+      f = new FarFoo
+    in
+      println(f.name())
+      ()
+    end
+  end
+end

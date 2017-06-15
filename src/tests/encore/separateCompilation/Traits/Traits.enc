@@ -1,0 +1,93 @@
+module Traits
+
+local trait Tr
+  def getClosure() : () -> unit
+    fun () => println("You have finally reached closure!")
+  end
+end
+
+read trait T
+  require def f() : Maybe[int]
+end
+
+read trait U
+  require def g() : Maybe[T + U]
+end
+
+read class C : T + U
+  def f() : Maybe[int]
+    Just(42)
+  end
+  def g() : Maybe[T + U]
+    Nothing
+  end
+end
+
+trait ActiveT
+  def foo() : int
+    42
+  end
+end
+
+trait ActiveS
+  def bar(x : int) : unit
+    println(x)
+  end
+end
+
+read trait Expr
+  require def eval() : Expr
+  def Val() : Maybe[int]
+    Nothing
+  end
+  def Var() : Maybe[String]
+    Nothing
+  end
+  def Neg() : Maybe[Expr]
+    Nothing
+  end
+  def Add() : Maybe[(Expr, Expr)]
+    Nothing
+  end
+  def Sub() : Maybe[(Expr, Expr)]
+    Nothing
+  end
+end
+read trait Unary
+  require val operand : Expr
+end
+read trait Binary
+  require val left : Expr
+  require val right : Expr
+end
+
+local trait OverridingFieldReqMissingT
+  require val f : int
+  def foo() : int
+    this.f
+  end
+end
+local trait OverridingFieldReqMissingS
+  require val g : int
+  def foo() : int
+    this.g
+  end
+end
+
+local trait OverridingPolyT[a]
+  require val f : a
+  require def id(x : OverridingPolyT[a]) : OverridingPolyT[a]
+  def foo() : a
+    this.f
+  end
+  def bar() : a
+    this.f
+  end
+end
+
+local trait UpcastFoo
+  require var x : int
+  def foo() : int
+    this.x
+  end
+end

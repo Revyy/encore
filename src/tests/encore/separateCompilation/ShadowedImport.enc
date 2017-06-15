@@ -1,0 +1,9 @@
+-- This file was automatically converted by encorec
+
+import Top
+import SelectiveLib as Top
+active class Main
+  def main() : unit
+    println("Should not compile")
+  end
+end

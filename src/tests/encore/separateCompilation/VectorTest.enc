@@ -1,0 +1,9 @@
+-- This file was automatically converted by encorec
+
+import Vector
+active class Main
+  def main() : unit
+    (new Vector[int]).there()
+    println("hello")
+  end
+end

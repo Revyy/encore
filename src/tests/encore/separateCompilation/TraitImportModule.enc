@@ -1,0 +1,8 @@
+module TraitImportModule
+read trait Reagent
+  def react() : unit
+    ()
+  end
+end
+class Foo2 : Reagent
+end

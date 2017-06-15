@@ -1,0 +1,9 @@
+-- This file was automatically converted by encorec
+
+import Left
+import Right
+active class Main
+  def main() : unit
+    print("{}\n", left() + right())
+  end
+end

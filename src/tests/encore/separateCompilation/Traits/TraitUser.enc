@@ -1,0 +1,149 @@
+module TraitUser
+import Traits
+
+fun foo(x : T + U) : unit
+  ()
+end
+
+class Foo : Tr
+end
+class Bar : Tr
+end
+
+class ActiveC : active ActiveT + active ActiveS
+end
+
+class Value : Expr(value)
+  val value : int
+  def init(value : int) : unit
+    this.value = value
+  end
+  def Val() : Maybe[int]
+    Just(this.value)
+  end
+  def eval() : Expr
+    new Value(this.value)
+  end
+end
+class Variable : Expr(id)
+  val id : String
+  def init(id : String) : unit
+    this.id = id
+  end
+  def Var() : Maybe[String]
+    Just(this.id)
+  end
+  def eval() : Expr
+    new Variable(this.id)
+  end
+end
+
+class Negation : Expr(operand) + Unary
+  val operand : Expr
+  def init(operand : Expr) : unit
+    this.operand = operand
+  end
+  def Neg() : Maybe[Expr]
+    Just(this.operand)
+  end
+  def eval() : Expr
+    val this' = new Negation(this.operand.eval())
+    match this' with
+      case Neg(Val(v)) =>
+        new Value(-(v))
+      end
+      case Neg(Neg(e)) =>
+        e
+      end
+      case e =>
+        e
+      end
+
+    end
+  end
+end
+class Addition : Expr(left, right) + Binary
+  val left : Expr
+  val right : Expr
+  def init(left : Expr, right : Expr) : unit
+    this.left = left
+    this.right = right
+  end
+  def Add() : Maybe[(Expr, Expr)]
+    Just((this.left, this.right))
+  end
+  def eval() : Expr
+    val this' = new Addition(this.left.eval(), this.right.eval())
+    match this' with
+      case Add(Val(0), r) =>
+        r
+      end
+      case Add(l, Val(0)) =>
+        l
+      end
+      case Add(l, Neg(e)) =>
+        (new Subtraction(l, e)).eval()
+      end
+      case Add(Val(l), Val(r)) =>
+        new Value(l + r)
+      end
+      case e =>
+        e
+      end
+
+    end
+  end
+end
+class Subtraction : Expr(left, right) + Binary
+  val left : Expr
+  val right : Expr
+  def init(left : Expr, right : Expr) : unit
+    this.left = left
+    this.right = right
+  end
+  def Sub() : Maybe[(Expr, Expr)]
+    Just((this.left, this.right))
+  end
+  def eval() : Expr
+    val this' = new Subtraction(this.left.eval(), this.right.eval())
+    match this' with
+      case Sub(Val(0), r) =>
+        (new Negation(r)).eval()
+      end
+      case Sub(l, Val(0)) =>
+        l
+      end
+      case Sub(l, Neg(e)) =>
+        (new Addition(l, e)).eval()
+      end
+      case Sub(Val(l), Val(r)) =>
+        new Value(l + r)
+      end
+      case e =>
+        e
+      end
+
+    end
+  end
+end
+
+
+class OverridingPolyC : OverridingPolyT[int]
+  var f : int
+  def init(f : int) : unit
+    this.f = f
+  end
+  def id(x : OverridingPolyT[int]) : OverridingPolyT[int]
+    x
+  end
+  def foo() : int
+    this.id(this).bar()
+  end
+end
+
+local trait UpcastBar[t, u]
+  def bar(x : UpcastFoo) : int
+    x.foo()
+  end
+end
+

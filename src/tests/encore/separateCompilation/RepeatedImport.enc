@@ -1,0 +1,9 @@
+-- This file was automatically converted by encorec
+
+import Top
+import Top
+active class Main
+  def main() : unit
+    print("{}\n", top())
+  end
+end

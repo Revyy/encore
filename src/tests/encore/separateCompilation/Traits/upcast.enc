@@ -1,0 +1,26 @@
+import Traits
+import TraitUser
+
+class UpcastC[t] : UpcastFoo + UpcastBar[int, String]
+  var x : int
+  def init(x : int) : unit
+    this.x = x
+  end
+end
+
+active class Main
+  def main() : unit
+    let
+      c = new UpcastC[int](42)
+      d = c : UpcastFoo
+      x = new UpcastC[int](42) : UpcastFoo
+      y = new UpcastC[int](42) : UpcastBar[int, String]
+      z = c : UpcastFoo + UpcastBar[int, String]
+    in
+      println(y.bar(x))
+      println(z.bar(x))
+      println("Done!")
+    end
+  end
+end
+

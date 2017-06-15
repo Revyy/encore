@@ -1,0 +1,97 @@
+module LocalModule
+
+fun LocalFunctionfoo() : int
+  13 + local1() + local2(15)
+where
+  fun local1() : int
+    val x = 14
+    x
+  end
+  fun local2(x : int) : int
+    x
+  end
+end
+fun LocalFunctionbar() : int
+  local1()
+where
+  fun local1() : int
+    0
+  end
+  fun foo() : String
+    "foo"
+  end
+end
+
+fun LocalFunctionClosurefoo(arg : int) : int
+  val f = bar()
+  f(arg)
+where
+  fun bar() :  int -> int
+    fun (x : int) : int
+      x + 1
+    end
+  end
+end
+
+fun LocalFunctionHigherOrderapp[a, b](f : a -> b, x : a) : b
+  f(x)
+end
+fun LocalFunctionHigherOrderfoo(x : int) : int
+  LocalFunctionHigherOrderapp(local, x)
+where
+  fun local(x : int) : int
+    x + 1
+  end
+end
+
+local class LocalFunctionMethodFoo
+  def foo() : int
+    13 + local1() + local2(15)
+  where
+    fun local1() : int
+      val x = 14
+      x
+    end
+    fun local2(x : int) : int
+      x
+    end
+  end
+  def bar() : int
+    local1()
+  where
+    fun local1() : int
+      0
+    end
+  end
+end
+
+fun LocalFunctionMutualfoo() : int
+  ping(42)
+where
+  fun ping(x : int) : int
+    if x == 0 then
+      0
+    else
+      1 + pong(x - 1)
+    end
+  end
+  fun pong(x : int) : int
+    if x == 0 then
+      0
+    else
+      1 + ping(x - 1)
+    end
+  end
+end
+
+fun LocalFunctionRecursivefoo() : int
+  local(42)
+where
+  fun local(x : int) : int
+    if x == 0 then
+      0
+    else
+      1 + local(x - 1)
+    end
+  end
+end
