@@ -56,9 +56,10 @@ translateActiveClass prog cdecl@(A.Class{A.cname, A.cfields, A.cmethods}) table 
 
 
 
-localInclude prog = if A.precompiled prog
-                    then libHeaderName prog
-                    else nonLibHeaderName prog
+localInclude prog = 
+    if A.precompiled prog
+    then libHeaderName prog
+    else nonLibHeaderName prog
       
 nonLibHeaderName prog = ("enc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
 libHeaderName prog = ("libenc" ++ ((takeFileName . dropExtension . A.getFullProgramSource) prog) ++ ".h")
