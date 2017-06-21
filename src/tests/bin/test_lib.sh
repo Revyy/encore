@@ -276,26 +276,16 @@ function run_err_test() {
   fi
   readonly OUTPUT
 
-  # echo once without the newline at the end of the output and once with the
-  # newline to give the .out files a bit of flexibility:
-  if (echo -n "${OUTPUT}" | cmp -s ${TEST}.err); then
-      return
-  fi
-  if (echo    "${OUTPUT}" | cmp -s ${TEST}.err); then
-      return
-  fi
 
-  echo "ERROR: test ${TEST} failed with output:";
-  echo "vvv OUTPUT vvvvvvvvvvvvvvvvv"
-  echo "$OUTPUT"
-  echo "vvv EXPECTED vvvvvvvvvvvvvvv"
-  cat ${TEST}.err
-  echo ""
-  if which diff>/dev/null; then
-      echo "vvv DIFF vvvvvvvvvvvvvvvvvvv"
-      echo "$OUTPUT" | diff ${TEST}.err -
-  fi
-  echo "^^^^^^^^^^^^^^^^^^^^^^^^^^^^";
+    cat ${TEST}.err | grep -v "^$" | while read LINE; do
+        if ! (echo "${OUTPUT}" | grep "${LINE}" > /dev/null); then
+            echo "ERROR: Line not contained in error output: '${LINE}'"
+        fi
+        if ! (echo -n "${OUTPUT}" | grep "${LINE}" > /dev/null); then
+            echo "ERROR: Line not contained in error output: '${LINE}'"
+        fi
+    done
+  
 }
 
 ############################################################

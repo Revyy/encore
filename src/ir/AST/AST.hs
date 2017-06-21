@@ -22,18 +22,47 @@ import AST.Meta as Meta hiding(Closure, Async)
 data FileDescriptor = Stdout | Stderr
   deriving (Show, Eq)
 
+data ProgramSource = Prelude {
+    shortPath :: FilePath,
+    absolutePath :: FilePath
+} | Regular FilePath
+
+instance Show ProgramSource where
+  show (Regular path) = path
+  show (Prelude _ absolutePath) = absolutePath
+
 data Program = Program {
-  source :: FilePath,
+  source :: ProgramSource,
+  precompiled :: Bool,
   moduledecl :: ModuleDecl,
   etl :: [EmbedTL],
   imports :: [ImportDecl],
   typedefs :: [Typedef],
   functions :: [Function],
   traits :: [TraitDecl],
-  classes :: [ClassDecl]
+  classes :: [ClassDecl],
+  libraries :: [Program]
 } deriving (Show)
 
-setProgramSource source p = p{source}
+setProgramSource shortPath absolutePath p = 
+  case source p of
+    Regular _ -> p{source = Regular absolutePath}
+    Prelude _ _ -> p{source = Prelude{shortPath, absolutePath}}
+
+getSource (Regular path) = path
+getSource (Prelude shortPath _) = shortPath
+
+getProgramSource p = 
+  case source p of
+    Regular path -> path
+    Prelude{shortPath} -> shortPath 
+
+getFullProgramSource p = 
+  case source p of
+    Regular path -> path
+    Prelude{absolutePath} -> absolutePath
+
+ 
 
 class Show a => HasMeta a where
     getMeta :: a -> Meta a
@@ -115,11 +144,17 @@ instance HasMeta ModuleDecl where
     setType ty i =
         error "AST.hs: Cannot set the type of a ModuleDecl"
 
-moduleName NoModule = Name "<default>"
+moduleName NoModule = Name "Main"
 moduleName Module{modname} = modname
 
 moduleExports NoModule = Nothing
 moduleExports Module{modexports} = modexports
+
+setModuleName :: String -> Program -> Program
+setModuleName name prog = 
+  case moduledecl prog of
+    NoModule -> prog
+    mod@Module{} -> prog{moduledecl = mod{modname = Name name}}
 
 data ImportDecl = Import {
       imeta   :: Meta ImportDecl,
@@ -876,6 +911,6 @@ getTrait t p =
   let
     match t trait = getId t == getId (tname trait)
   in
-    fromJust $ find (match t) (traits p)
+    fromJust $ find (match t) (traits p ++ (concatMap traits (libraries p)))
 
 allEmbedded = map etlheader . etl

@@ -1,0 +1,15 @@
+-- This file was automatically converted by encorec
+
+import Lib.SelectiveLib
+fun foo(x : Bar) : unit
+  ()
+end
+active class Bar
+end
+active class Main
+  def main() : unit
+    val x = new Foo
+    val y = x.foo()
+    foo(y)
+  end
+end

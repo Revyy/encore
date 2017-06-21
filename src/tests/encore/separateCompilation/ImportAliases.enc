@@ -1,0 +1,9 @@
+-- This file was automatically converted by encorec
+
+import Lib
+import Lib as X
+active class Main
+  def main() : unit
+    println(bar() + Lib.bar() + X.bar())
+  end
+end

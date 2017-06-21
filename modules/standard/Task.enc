@@ -12,6 +12,7 @@ inspection of futures, promises and tasks.
 ** Preamble with includes
 #+BEGIN_SRC encore
 module Task
+import Std
 #+END_SRC
 
 ** Manipulation of futures

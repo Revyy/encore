@@ -1,0 +1,18 @@
+-- This file was automatically converted by encorec
+
+module Vector
+local class Vector[t]
+  var data : [t]
+  def init() : unit
+    let
+      b = new [int](3)
+    in
+      b(0) = 0
+      b(1) = 0
+      b(2) = 42 - 19
+    end
+  end
+  def there() : unit
+    println("vector reporting for duty!")
+  end
+end

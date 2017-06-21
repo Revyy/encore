@@ -19,6 +19,7 @@ import CCode.Main
 import Data.List
 import Data.Char
 import Data.String.Utils
+import Data.Maybe (fromMaybe)
 
 import qualified AST.AST as A
 
@@ -30,6 +31,9 @@ char = Typ "char"
 
 int :: CCode Ty
 int = Typ "int64_t"
+
+smallInt :: CCode Ty
+smallInt = Typ "int"
 
 uint :: CCode Ty
 uint = Typ "uint64_t"
@@ -272,7 +276,7 @@ fieldName name =
 qualifiedToString :: ID.QualifiedName -> String
 qualifiedToString ID.QName{ID.qnsource = Nothing, ID.qnlocal} = show qnlocal
 qualifiedToString ID.QName{ID.qnsource = Just s, ID.qnlocal} =
-  sourceToString s ++ show qnlocal
+  sourceToString s ++ "_" ++ show qnlocal
 
 sourceToString :: FilePath -> String
 sourceToString = map translateSep . filter (/='.') . dropEnc
@@ -291,7 +295,7 @@ globalClosureName funname =
 functionClosureNameOf :: A.Function -> CCode Name
 functionClosureNameOf f =
     globalClosureName $ ID.setSourceFile (A.funsource f) $
-                        ID.topLevelQName (A.functionName f)
+                        ID.topLevelQName $ ID.Name $ show $ A.functionName f
 
 globalFunctionName :: ID.QualifiedName -> CCode Name
 globalFunctionName funname =
@@ -304,26 +308,26 @@ localFunctionName funname =
 globalFunctionNameOf :: A.Function -> CCode Name
 globalFunctionNameOf f@A.Function{A.funsource} =
   globalFunctionName $ ID.setSourceFile funsource $
-                       ID.topLevelQName $ A.functionName f
+                       ID.topLevelQName $ ID.Name $ show $ A.functionName f
 
 localFunctionNameOf :: A.Function -> CCode Name
 localFunctionNameOf f@A.Function{A.funsource} =
   localFunctionName $ ID.setSourceFile funsource $
-                      ID.topLevelQName $ A.functionName f
+                      ID.topLevelQName $ ID.Name $ show $ A.functionName f
 
 functionWrapperNameOf :: A.Function -> CCode Name
 functionWrapperNameOf f@A.Function{A.funsource} =
   Nam $ encoreName "fun_wrapper" $
       qualifiedToString $
       ID.setSourceFile funsource $
-      ID.topLevelQName $ A.functionName f
+      ID.topLevelQName $ ID.Name $ show $ A.functionName f
 
-functionAsValueWrapperNameOf :: A.Expr -> CCode Name
-functionAsValueWrapperNameOf (A.FunctionAsValue {A.qname}) =
-  Nam $ encoreName "fun_wrapper" (qualifiedToString qname)
-functionAsValueWrapperNameOf e =
-    error $ "CCodeNames.hs: Tried to get function wrapper from '" ++
-            show e ++ "'"
+functionAsValueWrapperNameOf :: A.FunctionHeader -> ID.QualifiedName -> CCode Name
+functionAsValueWrapperNameOf f@A.Header{A.hname} ID.QName{ID.qnsource} =
+  Nam $ encoreName "fun_wrapper" $
+      qualifiedToString $ 
+      ID.setSourceFile (fromMaybe "" qnsource) $
+      ID.topLevelQName $ ID.Name $ show hname      
 
 closureStructName :: CCode Name
 closureStructName = Nam "closure"

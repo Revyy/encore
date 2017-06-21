@@ -1,6 +1,7 @@
 -- This file was automatically converted by encorec
 
 module Bool
+import String
 
 read class Bool
   val value : bool

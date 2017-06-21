@@ -1,0 +1,10 @@
+-- This file was automatically converted by encorec
+
+import FarLib
+active class Main
+  def main() : unit
+    val x = new FarFoo
+    x.foo(x.f)
+    x.s()
+  end
+end

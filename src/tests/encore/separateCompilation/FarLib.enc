@@ -1,0 +1,16 @@
+module FarLib
+
+import TraitLib
+
+read class FarFoo : S
+  val f : S
+  def init() : unit
+    this.f = this
+  end
+  def name() : String
+    "FarFoo"
+  end
+  def foo(x : S) : S
+    x
+  end
+end

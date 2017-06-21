@@ -18,6 +18,10 @@ encorec: dirs pony stack-setup
 	export ENCORE_MODULES="$(CURDIR)/modules/" && \
 	stack install --system-ghc --local-bin-path $(RELEASE_DIR)
 
+profile: dirs pony stack-setup
+	export ENCORE_MODULES="$(CURDIR)/modules/" && \
+	stack install --profile --system-ghc --local-bin-path $(RELEASE_DIR)
+
 stack-setup:
 	stack setup --system-ghc
 

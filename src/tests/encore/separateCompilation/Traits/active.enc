@@ -1,0 +1,9 @@
+import Traits
+import TraitUser
+
+active class Main
+  def main(args : [String]) : unit
+    val x = new ActiveC : active ActiveT + active ActiveS
+    x!bar(get(x!foo()))
+  end
+end

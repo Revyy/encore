@@ -1,0 +1,8 @@
+-- This file was automatically converted by encorec
+
+import qualified Top
+active class Main
+  def main() : unit
+    println(Top.top())
+  end
+end

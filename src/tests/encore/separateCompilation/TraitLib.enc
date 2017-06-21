@@ -1,0 +1,7 @@
+module TraitLib
+
+read trait S
+  def s(): unit
+    println("In TraitLib.S")
+  end
+end

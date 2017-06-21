@@ -1,0 +1,7 @@
+import LocalModule
+
+active class Main
+  def main() : unit
+    println(LocalFunctionClosurefoo(41))
+  end
+end

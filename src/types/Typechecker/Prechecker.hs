@@ -57,7 +57,7 @@ instance Precheckable Program where
                         ,classes} = do
       assertDistinctness
       precheck moduledecl
-      assertCorrectModuleName source moduledecl
+      assertCorrectModuleName (getSource source) moduledecl
       assertNoShadowedImports
       mapM_ precheck imports
       typedefs'  <- mapM precheck typedefs

@@ -43,5 +43,5 @@ instance Translatable A.Program Emitted where
     in
       Emitted{classes, header, shared}
     where
-      nameAndClass table A.Program{A.classes} =
-        [(Ty.getId (A.cname c), translate c table) | c <- classes]
+      nameAndClass table prog@A.Program{A.classes} =
+        [(Ty.getId (A.cname c), translate (prog, c) table) | c <- classes]

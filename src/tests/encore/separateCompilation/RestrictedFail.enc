@@ -1,0 +1,8 @@
+-- This file was automatically converted by encorec
+
+import RestrictedExport
+active class Main
+  def main() : unit
+    bar()
+  end
+end

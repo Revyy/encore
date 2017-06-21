@@ -1,0 +1,13 @@
+import Libs.Closures
+import Libs.Greetings
+
+
+active class Main
+  def main() : unit
+    val callr = new ClosureCaller
+    println(callr.start(GreetSwedish))
+    println(callr.start(GreetEnglish))
+    println(callr.start(GreetEnglishFancy))
+  end
+end
+

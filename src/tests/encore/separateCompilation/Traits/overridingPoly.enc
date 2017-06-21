@@ -1,0 +1,8 @@
+import Traits
+import TraitUser
+
+active class Main
+  def main() : unit
+    println((new OverridingPolyC(42)).foo())
+  end
+end

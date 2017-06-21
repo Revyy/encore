@@ -5,6 +5,7 @@
 # Modules used by 'modules' tests
 # Should not be considered as tests
 #
+encore/separateCompilation
 encore/modules/ClosureImporter
 encore/modules/ClosureImp
 encore/modules/DeepLib
@@ -28,6 +29,28 @@ encore/modules/SelectiveLib
 encore/modules/TokenModule
 encore/modules/ModuleOnTheLeft
 encore/modules/ModuleOnTheRight
+encore/separateCompilation/Closures/Libs/Closures
+encore/separateCompilation/Closures/Libs/Greetings
+encore/separateCompilation/Traits/Traits
+encore/separateCompilation/Traits/TraitUser
+encore/separateCompilation/Traits/TraitUserFail
+encore/separateCompilation/lib/SelectiveLib
+encore/separateCompilation/Utils
+encore/separateCompilation/Lib
+encore/separateCompilation/Top
+encore/separateCompilation/QLib
+encore/separateCompilation/RestrictedExport
+encore/separateCompilation/Right
+encore/separateCompilation/Left
+encore/separateCompilation/FarLib
+encore/separateCompilation/SelectiveLib
+encore/separateCompilation/TokenModule
+encore/separateCompilation/Vector
+encore/separateCompilation/TraitLib
+encore/separateCompilation/TraitImportModule
+encore/separateCompilation/SelectiveLib
+encore/separateCompilation/LocalFunction/LocalModule
+encore/separateCompilation/lib/*
 
 #
 # Disabled 'basic' tests

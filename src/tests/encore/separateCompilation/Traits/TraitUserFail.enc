@@ -1,0 +1,15 @@
+module TraitUserFail
+
+import Traits
+
+class OverridingFieldReqMissingFoo : OverridingFieldReqMissingT(g) + OverridingFieldReqMissingS
+  var f : int
+  var g : int
+  def init(f : int, g : int) : unit
+    this.f = f
+    this.g = g
+  end
+  def foo() : int
+    this.f + this.g
+  end
+end

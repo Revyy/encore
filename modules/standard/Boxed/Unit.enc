@@ -1,6 +1,7 @@
 -- This file was automatically converted by encorec
 
 module Unit
+import String
 
 read class Unit
   def show() : String

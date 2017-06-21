@@ -6,6 +6,7 @@ import CodeGen.CCodeNames
 import CodeGen.Typeclasses
 import CodeGen.Function
 import CodeGen.ClassTable
+import System.FilePath (dropExtension, takeFileName)
 import qualified AST.AST as A
 
 import Data.Maybe
@@ -14,10 +15,10 @@ import Data.List
 -- | Generates a file containing the shared (but not included) C
 -- code of the translated program
 generateShared :: A.Program -> ProgramTable -> CCode FIN
-generateShared prog@(A.Program{A.source, A.classes, A.functions, A.imports}) table =
+generateShared prog@(A.Program{A.source, A.moduledecl, A.classes, A.functions, A.imports}) table =
     Program $
     Concat $
-      (LocalInclude "header.h") :
+      (LocalInclude localInclude) :
 
       embeddedCode ++
 
@@ -25,9 +26,17 @@ generateShared prog@(A.Program{A.source, A.classes, A.functions, A.imports}) tab
       -- sharedMessages ++
       [commentSection "Global functions"] ++
       globalFunctions ++
-
       [mainFunction]
     where
+
+      localInclude = 
+        if A.precompiled prog
+        then libHeaderName 
+        else nonLibHeaderName
+      
+      nonLibHeaderName = ("enc" ++ ((show . A.moduleName . A.moduledecl) prog) ++ ".h")
+      libHeaderName = ("libenc" ++ ((takeFileName . dropExtension . A.getFullProgramSource) prog) ++ ".h")
+
       globalFunctions =
         [translate f table globalFunction | f <- functions] ++
         [globalFunctionWrapper f | f <- functions] ++
@@ -57,10 +66,13 @@ generateShared prog@(A.Program{A.source, A.classes, A.functions, A.imports}) tab
                AssignTL (Decl (ponyMsgT, Var "m_run_closure"))
                         (Record [Int 3, Record [encorePrimitive, encorePrimitive, encorePrimitive]])
 
-      mainFunction =
-          Function (Typ "int") (Nam "main")
-                   [(Typ "int", Var "argc"), (Ptr . Ptr $ char, Var "argv")]
-                   $ Return encoreStart
+      mainFunction 
+        | not $ A.precompiled prog =
+            Function (Typ "int") (Nam "main")
+              [(Typ "int", Var "argc"), (Ptr . Ptr $ char, Var "argv")]
+                $ Return encoreStart
+        | A.precompiled prog = 
+            commentSection ("No main function needed for " ++ (show . A.modname . A.moduledecl) prog)
           where
             encoreStart =
                 case find isLocalMain classes of
@@ -75,7 +87,7 @@ generateShared prog@(A.Program{A.source, A.classes, A.functions, A.imports}) tab
                             "This program has no Main class and will now exit"
                       in Call (Nam "puts") [String msg]
             isLocalMain c@A.Class{A.cname} = A.isMainClass c &&
-                                             getRefSourceFile cname == source
+                                             getRefSourceFile cname == A.getSource source
 
 
 commentSection :: String -> CCode Toplevel

@@ -1,0 +1,15 @@
+module QLib
+
+typedef X = QFoo
+
+read trait T
+  def zero() : int
+    0
+  end
+end
+
+read class QFoo : T
+  def name() : String
+    "QFoo"
+  end
+end

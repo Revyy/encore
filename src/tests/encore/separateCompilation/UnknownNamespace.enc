@@ -1,0 +1,10 @@
+-- This file was automatically converted by encorec
+
+fun foo() : unit
+  println("foo")
+end
+active class Main
+  def main() : unit
+    Foo.Bar.foo()
+  end
+end

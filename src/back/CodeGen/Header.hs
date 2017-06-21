@@ -2,6 +2,7 @@ module CodeGen.Header(generateHeader) where
 
 import Control.Arrow ((&&&))
 import Data.List (partition)
+import System.FilePath(dropExtension)
 
 import CodeGen.Typeclasses
 import CodeGen.CCodeNames
@@ -14,6 +15,7 @@ import CCode.PrettyCCode ()
 import qualified AST.AST as A
 import qualified Identifiers as ID
 import qualified Types as Ty
+import Data.Char (toUpper)
 
 -- | Generates the C header file for the translated program
 -- | This function generates all the common code, generateHeaderRecurser generates class specific code
@@ -21,30 +23,13 @@ generateHeader :: A.Program -> CCode FIN
 
 generateHeader p =
     Program $
-    IfNDefine "HEADER_H" $
+    IfNDefine headerDef $
     Concat $
-    HashDefine "HEADER_H" :
+    HashDefine headerDef :
     HashDefine "_XOPEN_SOURCE 800" :
-    (Includes [
-      "pthread.h", -- Needed because of the use of locks in future code, remove if we choose to remove lock-based futures
-      "pony.h",
-      "pool.h",
-      "stdlib.h",
-      "closure.h",
-      "stream.h",
-      "array.h",
-      "tuple.h",
-      "range.h",
-      "future.h",
-      "task.h",
-      "option.h",
-      "party.h",
-      "string.h",
-      "stdio.h",
-      "stdarg.h",
-      "dtrace_enabled.h",
-      "dtrace_encore.h"
-     ]) :
+    (Includes includes) :
+
+    (Includes libHeaders) :
     HashDefine "UNIT ((void*) -1)" :
 
     [commentSection "Shared messages"] ++
@@ -66,7 +51,10 @@ generateHeader p =
     runtimeTypeDecls ++
 
     [commentSection "Message IDs"] ++
-    [messageEnums] ++
+    (if null classes
+    then [commentSection "No classes"] 
+    else [messageEnums]) ++
+
 
     [commentSection "Message types"] ++
     ponyMsgTTypedefs ++
@@ -76,7 +64,9 @@ generateHeader p =
     globalFunctions ++
 
     [commentSection "Class IDs"] ++
-    [classEnums] ++
+    (if null classes
+     then [commentSection "No class id's"] 
+     else [classEnums]) ++
 
     [commentSection "Trace functions"] ++
     traceFnDecls ++
@@ -95,8 +85,8 @@ generateHeader p =
     [externMainRtti] ++
 
     [commentSection "Trait types"] ++
-    [traitMethodEnums] ++
-    traitTypes
+    traitTypes ++
+    traitMethodDecls
    where
      externMainRtti = DeclTL (Typ "extern pony_type_t", Var "_enc__active_Main_type")
 
@@ -113,6 +103,42 @@ generateHeader p =
      functions = A.functions p
      embedded = A.allEmbedded p
 
+     libs = A.libraries p
+
+     libraryHeader lib = 
+       let folder = dropExtension (A.getFullProgramSource lib) ++ "_lib"
+           name = "libenc" ++ ((show . A.moduleName . A.moduledecl) lib) ++ ".h"
+       in folder ++ "/" ++ name
+
+
+     libHeaders = map libraryHeader libs 
+
+     headerDef = if A.precompiled p 
+                 then "ENCORE_LIB_" ++ ((map toUpper . show . A.moduleName . A.moduledecl) p) ++ "_H" 
+                 else "ENCORE_" ++ ((map toUpper . show . A.moduleName . A.moduledecl) p) ++ "_H" 
+     
+     includes = [
+                    "pthread.h", -- Needed because of the use of locks in future code, remove if we choose to remove lock-based futures
+                    "pony.h",
+                    "pool.h",
+                    "stdlib.h",
+                    "closure.h",
+                    "stream.h",
+                    "array.h",
+                    "tuple.h",
+                    "range.h",
+                    "future.h",
+                    "task.h",
+                    "option.h",
+                    "party.h",
+                    "string.h",
+                    "stdio.h",
+                    "stdarg.h",
+                    "dtrace_enabled.h",
+                    "dtrace_encore.h"
+                ]
+    
+  
      ponyMsgTTypedefs :: [CCode Toplevel]
      ponyMsgTTypedefs = map ponyMsgTTypedefClass classes
             where
@@ -167,15 +193,18 @@ generateHeader p =
                     meta = concatMap (\cdecl -> zip (repeat $ A.cname cdecl) (map A.methodName (A.cmethods cdecl))) classes
                     methodMsgNames = map (show . (uncurry futMsgId)) meta
                     oneWayMsgNames = map (show . (uncurry oneWayMsgId)) meta
+                    allNames = methodMsgNames ++ oneWayMsgNames
+                    safeTail xs
+                      | null xs   = []
+                      | otherwise = tail xs
                 in
-                       Enum $ (Nam "_MSG_DUMMY__ = 1024") : map Nam (methodMsgNames ++ oneWayMsgNames)
+                       Enum $ (Nam  $ head allNames ++ "= 1024") : map Nam (safeTail allNames)
 
      classEnums =
        let
         classIds = map (refTypeId . A.getType) classes
-        traitIds = map (refTypeId . A.getType) traits
        in
-        Enum $ (Nam "__ID_DUMMY__ = 1024") : classIds ++ traitIds
+        Enum classIds
 
      traceFnDecls = map traceFnDecl classes
          where
@@ -202,17 +231,6 @@ generateHeader p =
                                    zip
                                    (map (translate . A.ftype) cfields)
                                    (map (AsLval . fieldName . A.fname) cfields))
-     traitMethodEnums =
-       let
-         dicts = map (A.getType &&& A.traitInterface) traits
-         pairs = concatMap (\(t, hs) -> zip (repeat t) (map A.hname hs)) dicts
-         syncs = map (show . uncurry msgId) pairs
-         futs  = map (show . uncurry futMsgId) pairs
-         oneways = map (show . uncurry oneWayMsgId) pairs
-       in Enum $ Nam "__TRAIT_METHOD_DUMMY__ = 1024" :
-                 map Nam syncs ++
-                 map Nam futs ++
-                 map Nam oneways
 
      traitTypeDecls = map traitTypeDecl traits
        where
@@ -227,6 +245,18 @@ generateHeader p =
              self = (Ptr ponyTypeT, AsLval $ selfTypeField)
            in
              StructDecl (AsType $ refTypeName tname) [self]
+
+     traitMethodDecls =
+        let
+          dicts = map (A.getType &&& A.traitInterface) traits
+          pairs = concatMap (\(t, hs) -> zip (repeat t) (map A.hname hs)) dicts
+          syncs = map (show . uncurry msgId) pairs
+          futs  = map (show . uncurry futMsgId) pairs
+          oneways = map (show . uncurry oneWayMsgId) pairs
+        in 
+           map (\s -> DeclTL (smallInt, Var s)) syncs ++
+           map (\f -> DeclTL (smallInt, Var f)) futs ++
+           map (\o -> DeclTL (smallInt, Var o)) oneways
 
      runtimeTypeDecls = map typeDecl classes ++ map typeDecl traits
        where

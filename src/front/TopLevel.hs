@@ -26,7 +26,7 @@ import SystemUtils
 import Language.Haskell.TH -- for Template Haskell hackery
 import Text.Printf
 import qualified Text.PrettyPrint.Boxes as Box
-import System.FilePath (splitPath, joinPath)
+import System.FilePath (splitPath, joinPath, dropExtension, takeDirectory, takeFileName)
 import Text.Megaparsec.Error(errorPos, parseErrorTextPretty)
 import AST.Meta(showSourcePos)
 
@@ -75,6 +75,7 @@ data Option =
             | Help
             | Undefined String
             | Malformed String
+            | CreateLibrary
               deriving Eq
 
 data OptionHolder =
@@ -122,6 +123,8 @@ optionMappings =
         "Compile and run the program, but do not produce executable file."),
        (NoArg NoGC, "", "--no-gc", "",
         "DEBUG: disable GC and use C-malloc for allocation."),
+       (NoArg CreateLibrary, "-cl", "--create-library", "",
+        "Produces a static library with the contents of the module."),
        (NoArg Help, "", "--help", "",
         "Display this information.")
       ]
@@ -198,6 +201,12 @@ output ast = flip hPrint ast
 writeClass srcDir (name, ast) =
     withFile (srcDir ++ "/" ++ name ++ ".encore.c") WriteMode (output ast)
 
+writeEncoreFiles srcDir classes (header, headerFile) (shared, sharedFile) = do
+  createDirectoryIfMissing True srcDir
+  mapM_ (writeClass srcDir) classes
+  withFile headerFile WriteMode (output header)
+  withFile sharedFile WriteMode (output shared)
+
 processClassNames pairs =
   let (names, classes) = unzip pairs
       unprimed = map (replace "'" "_prime") names
@@ -210,16 +219,38 @@ processClassNames pairs =
         | otherwise = name:acc
   in zip disambiguated classes
 
+
+getLibFolders libImports = 
+  let getBaseDir p = ((takeDirectory . getFullProgramSource) p) 
+      getSrcDir p = ((takeFileName . dropExtension . getFullProgramSource) p) ++ "_lib"
+  in
+    (nub (map (\p -> (getBaseDir p </> getSrcDir p)) libImports))
+
+getModuleName :: Program -> String
+getModuleName = show . moduleName . moduledecl
+
+isOutput (Output _) = True
+isOutput _ = False
+
+isOptimise (Optimise _) = True
+isOptimise _ = False
+
+isCustomFlags (CustomFlags _) = True
+isCustomFlags _ = False
+
+getDefines = unwords . map ("-D"++) .
+                   filter (/= "") . map getDefine
+getDefine NoGC = "NO_GC"
+getDefine _ = ""
+
+
+
 compileProgram prog sourcePath options =
     do encorecPath <- getExecutablePath
        let encorecDir = dirname encorecPath
            incPath = encorecDir <> "inc/"
            libPath = encorecDir <> "lib/"
-           dropExt src = let src' = changeFileExt src ""
-                         in if src == src'
-                            then src'
-                            else dropExt src'
-           sourceName = dropExt sourcePath
+           sourceName = dropExtension sourcePath
            execName = case find isOutput options of
                         Just (Output file) -> file
                         Nothing            -> sourceName
@@ -227,18 +258,24 @@ compileProgram prog sourcePath options =
        when (execName == sourcePath) $
             abort $ "Compilation would overwrite the source! Aborting.\n" ++
                     "You can specify the output file with -o [file]"
-       createDirectoryIfMissing True srcDir
+       
        let emitted = compileToC prog
            classes = processClassNames (getClasses emitted)
            header = getHeader emitted
            shared = getShared emitted
-       mapM_ (writeClass srcDir) classes
+           libImports = libraries prog
+
        let encoreNames =
              map (\(name, _) -> changeFileExt name "encore.c") classes
            classFiles = map (srcDir </>) encoreNames
-           headerFile = srcDir </> "header.h"
+           headerFile = srcDir </> ("enc" ++ (getModuleName prog) ++ ".h")
            sharedFile = srcDir </> "shared.c"
            makefile   = srcDir </> "Makefile"
+
+           libFolders = getLibFolders libImports
+           
+           localLibs = concatMap (\str -> str ++ "/*.a ") libFolders
+
            cc    = "clang"
            customFlags = case find isCustomFlags options of
                            Just (CustomFlags str) -> str
@@ -253,13 +290,16 @@ compileProgram prog sourcePath options =
                         Nothing             -> ""
            debug = if Debug `elem` options then "-g" else ""
            libs  = libPath ++ "*.a"
+                                
            cmd   = pg <+> opt <+> flags <+> libs <+> incs <+> debug
            compileCmd = cc <+> cmd <+> oFlag <+> unwords classFiles <+>
-                        sharedFile <+> libs <+> libs <+> defines
-       withFile headerFile WriteMode (output header)
-       withFile sharedFile WriteMode (output shared)
+                        sharedFile <+> localLibs <+> libs <+> libs <+> defines
+       
+       --Write files
+       writeEncoreFiles srcDir classes (header, headerFile) (shared, sharedFile)
        withFile makefile   WriteMode (output $
-          generateMakefile encoreNames execName cc cmd incPath defines libs)
+          generateMakefile encoreNames execName cc cmd incPath defines libs localLibs)
+
        when ((TypecheckOnly `notElem` options) || (Run `elem` options))
            (do files  <- getDirectoryContents "."
                let ofilesInc = unwords (filter (isSuffixOf ".o") files)
@@ -272,20 +312,68 @@ compileProgram prog sourcePath options =
                   (do runCommand $ "rm -rf" <+> srcDir
                       return ())
        return execName
-    where
-      isOutput (Output _) = True
-      isOutput _ = False
 
-      isOptimise (Optimise _) = True
-      isOptimise _ = False
+      
 
-      isCustomFlags (CustomFlags _) = True
-      isCustomFlags _ = False
+compileLibrary p sourcePath options =
+  do encorecPath <- getExecutablePath
+     let encorecDir = dirname encorecPath
+         incPath = encorecDir <> "inc/"
+         sourceName = case find isOutput options of
+                        Just (Output file) -> takeDirectory sourcePath </> file
+                        Nothing            -> dropExtension sourcePath
 
-      getDefines = unwords . map ("-D"++) .
-                   filter (/= "") . map getDefine
-      getDefine NoGC = "NO_GC"
-      getDefine _ = ""
+         baseDir = dropExtension sourcePath
+         srcDir = baseDir ++ "_lib"
+         name = (takeFileName sourceName)
+         libName = "libenc" ++ name ++ ".a" 
+         prog = setModuleName name p
+  
+     let emitted = compileToC prog
+         header = getHeader emitted
+         classes = processClassNames (getClasses emitted)
+         shared = getShared emitted
+         libImports = libraries prog
+    
+     let encoreNames = 
+           map (\(name, _) -> changeFileExt name "encore.o") classes
+         headerFile = srcDir </> ("libenc" ++ (takeFileName baseDir) ++ ".h")
+         sharedFile = srcDir </> "shared.c"
+         makefile   = srcDir </> "Makefile" 
+         encoreClassNames = map (\(name, _) -> changeFileExt name "encore.c") classes
+         sharedFileName = "shared.c"
+
+         libFolders = getLibFolders libImports
+
+         cc    = "clang"
+         customFlags = case find isCustomFlags options of
+                            Just (CustomFlags str) -> str
+                            Nothing                -> ""
+         flags = "-std=gnu11 -Wall -fms-extensions -Wno-format -Wno-microsoft -Wno-parentheses-equality -Wno-unused-variable -Wno-unused-value" <+> customFlags <+> "-Wno-attributes"
+         defines = getDefines options
+         incs  = "-I" <+> incPath
+         cmd   = flags <+> incs
+
+         cdCmd = "cd" <+> srcDir <+> "&&"
+         libCmd = "&& ar -rcs" <+> libName <+> "*.o"
+         compileCmd = cdCmd <+> cc <+> "-c" <+> cmd <+> unwords encoreClassNames <+> sharedFileName <+> libCmd
+         
+     --Write files
+     writeEncoreFiles srcDir classes (header, headerFile) (shared, sharedFile)
+     withFile makefile   WriteMode (output $
+           generateLibraryMakefile encoreNames libName cc cmd incPath defines)
+     --Compile
+     exitCode <- system $ compileCmd
+     case exitCode of
+       ExitSuccess -> return ()
+       ExitFailure n ->
+            abort $ " *** Compilation failed with exit code" <+> show n <+> "***"
+     
+     unless (KeepCFiles `elem` options)
+                  (do runCommand $ cdCmd <+> "rm -rf" <+> "*.o" <+> "*.c" <+> "Makefile"
+                      return ())
+     return srcDir
+
 
 main =
     do args <- getArgs
@@ -298,12 +386,17 @@ main =
                     usage <> "\n" <>
                     "The --help flag provides more information.\n"))
        warnings options
+
+       importPaths <- mapM absolutize importDirs
+
        let sourceName = head programs
-       sourceExists <- doesFileExist sourceName
+       sourcePath <- absolutize sourceName
+
+       sourceExists <- doesFileExist sourcePath
        unless sourceExists
-           (abort $ "File \"" ++ sourceName ++ "\" does not exist! Aborting.")
-       verbose options $ "== Reading file '" ++ sourceName ++ "' =="
-       raw <- readFile sourceName
+           (abort $ "File \"" ++ sourcePath ++ "\" does not exist! Aborting.")
+       verbose options $ "== Reading file '" ++ sourcePath ++ "' =="
+       raw <- readFile sourcePath
        code <- if Literate `elem` options || "#+literate\n" `isPrefixOf` raw
                then do
                  verbose options "== Extracting tangled code =="
@@ -312,12 +405,15 @@ main =
                    return raw
 
        verbose options "== Parsing =="
-       ast <- case parseEncoreProgram sourceName code of
+       ast <- case parseEncoreProgram sourcePath code of
                 Right ast  -> return ast
                 Left error -> do
                   let pos = NE.head $ errorPos error
                   abort $ showSourcePos pos ++ ":\n" ++
                           parseErrorTextPretty error
+       
+       when (CreateLibrary `elem` options && (moduledecl ast == NoModule)) $ do
+            abort $ show "Error: Only modules can be targeted when using -cl(--create-library)"
 
        when (PrettyPrint `elem` options) $ do
             verbose options "== Pretty printing =="
@@ -325,6 +421,12 @@ main =
 
        verbose options "== Importing modules =="
        programTable <- buildProgramTable importDirs preludePaths ast
+
+       when (CreateLibrary `elem` options) $
+            mapM_ (\p -> when (not $ precompiled p) $ reportPrecompileImportError $ getFullProgramSource p) 
+                (Map.delete (shortenPrelude preludePaths sourcePath) programTable)
+              
+             
 
        verbose options "== Desugaring =="
        let desugaredTable = fmap desugarProgram programTable
@@ -342,18 +444,29 @@ main =
        let optimizedTable = fmap optimizeProgram capturecheckedTable
 
        verbose options "== Generating code =="
-       let (mainDir, mainName) = dirAndName sourceName
-           mainSource = mainDir </> mainName
-       let fullAst = setProgramSource mainSource $
-                     compressProgramTable optimizedTable
 
-       unless (TypecheckOnly `elem` options) $
-         case checkForMainClass mainSource fullAst of
+       let mainSource = (shortenPrelude preludePaths sourcePath)
+
+       --Separate the main program from the modules before compressing.
+       let source = fromJust $ Map.lookup mainSource optimizedTable 
+           rest = Map.delete mainSource optimizedTable
+
+
+       let fullAst = setProgramSource mainSource sourcePath $
+                     compressProgramTable source rest
+       
+       let fullAst' = if CreateLibrary `elem` options then fullAst{precompiled=True} else fullAst
+
+       unless (TypecheckOnly `elem` options || CreateLibrary `elem` options) $
+         case checkForMainClass mainSource fullAst' of
            Just error -> abort $ show error
            Nothing    -> return ()
 
-       exeName <- compileProgram fullAst sourceName options
-       when (Run `elem` options)
+       exeName <- if CreateLibrary `elem` options 
+                  then compileLibrary fullAst' sourcePath options
+                  else compileProgram fullAst' sourcePath options
+
+       when (Run `elem` options && not (CreateLibrary `elem` options))
            (do verbose options $ "== Running '" ++ exeName ++ "' =="
                system $ "./" ++ exeName
                system $ "rm " ++ exeName
@@ -361,6 +474,9 @@ main =
        verbose options "== Done =="
 
     where
+      reportPrecompileImportError s = abort $ 
+          "Error: An imported module is not precompiled. Source: " ++  s
+
       precheckProgramTable :: ProgramTable -> IO ProgramTable
       precheckProgramTable table = do
         let lookupTableTable = fmap buildLookupTable table

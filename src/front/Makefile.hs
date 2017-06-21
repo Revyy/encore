@@ -20,6 +20,7 @@ benchFlags = text "$(BENCH_FLAGS)"
 target = text "$(TARGET)"
 inc = text "$(INC)"
 lib = text "$(LIB)"
+local = text "$(LOCAL)"
 deps = text "$(DEPS)"
 defs = text "$(DEFINES)"
 dSYM = text ".dSYM"
@@ -28,8 +29,8 @@ o = (text "-o" <+>)
 parent = text ".."
 
 generateMakefile :: [String] ->
-   String -> String -> String -> String -> String -> String -> Doc
-generateMakefile classFiles progName compiler ccFlags incPath defines libs =
+   String -> String -> String -> String -> String -> String -> String -> Doc
+generateMakefile classFiles progName compiler ccFlags incPath defines libs locals =
     decl "CC" [compiler]
     $$
     decl "TARGET" [progName]
@@ -37,6 +38,8 @@ generateMakefile classFiles progName compiler ccFlags incPath defines libs =
     decl "INC" [incPath]
     $$
     decl "LIB" [libs]
+    $$
+    decl "LOCAL" [locals]
     $$
     decl "FLAGS" [ccFlags]
     $$
@@ -50,16 +53,47 @@ generateMakefile classFiles progName compiler ccFlags incPath defines libs =
          empty
     $\$
     rule target deps
-         (cc [flags, i inc, i parent, deps, lib, lib, defs, o target])
+         (cc [flags, i inc, i parent, deps, local, lib, lib, defs, o target])
     $\$
     rule bench deps
-         (cc [benchFlags, i inc, i parent, deps, lib, lib, defs, o target])
+         (cc [benchFlags, i inc, i parent, deps, local, lib, lib, defs, o target])
     $\$
     rule clean empty
          (rm [target, target <> dSYM])
     $\$
     rule phony (all <+> bench <+> clean)
          empty
+    where
+      decl var rhs = text var <> equals <> hsep (map text rhs)
+      rule target deps cmd
+          | isEmpty cmd = target <> colon <+> deps
+          | otherwise   = target <> colon <+> deps $$
+                          tab <> cmd
+
+generateLibraryMakefile :: [String] ->
+   String -> String -> String -> String -> String -> Doc
+generateLibraryMakefile classFiles libName compiler ccFlags incPath defines =
+    decl "CC" [compiler]
+    $$
+    decl "TARGET" [libName]
+    $$
+    decl "INC" [incPath]
+    $$
+    decl "FLAGS" [ccFlags]
+    $$
+    decl "DEFINES" [defines]
+    $$
+    decl "DEPS" ("shared.o" : classFiles)
+    $\$
+    rule (text "%.o")  (text "%.c")
+         (cc [flags, i inc, (text "-c -o $@ $<")])
+    $\$
+    rule (text "module") deps
+         (text "ar -rcs $(TARGET) *.o")
+    $\$
+    rule clean empty
+         (rm [target, (text "*.o")])
+   
     where
       decl var rhs = text var <> equals <> hsep (map text rhs)
       rule target deps cmd

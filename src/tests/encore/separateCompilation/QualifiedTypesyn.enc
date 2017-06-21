@@ -1,0 +1,13 @@
+-- This file was automatically converted by encorec
+
+import qualified QLib
+import QLib
+active class Main
+  def main() : unit
+    let
+      x = new QLib.QFoo() : X
+    in
+      println(x.name())
+    end
+  end
+end
