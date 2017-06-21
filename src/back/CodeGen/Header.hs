@@ -254,9 +254,9 @@ generateHeader p =
           futs  = map (show . uncurry futMsgId) pairs
           oneways = map (show . uncurry oneWayMsgId) pairs
         in 
-           map (\s -> DeclTL (int, Var s)) syncs ++
-           map (\f -> DeclTL (int, Var f)) futs ++
-           map (\o -> DeclTL (int, Var o)) oneways
+           map (\s -> DeclTL (smallInt, Var s)) syncs ++
+           map (\f -> DeclTL (smallInt, Var f)) futs ++
+           map (\o -> DeclTL (smallInt, Var o)) oneways
 
      runtimeTypeDecls = map typeDecl classes ++ map typeDecl traits
        where

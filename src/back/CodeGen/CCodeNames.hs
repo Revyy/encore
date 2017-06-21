@@ -32,6 +32,9 @@ char = Typ "char"
 int :: CCode Ty
 int = Typ "int64_t"
 
+smallInt :: CCode Ty
+smallInt = Typ "int"
+
 uint :: CCode Ty
 uint = Typ "uint64_t"
 
